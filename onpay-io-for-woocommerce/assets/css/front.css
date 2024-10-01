@@ -1,0 +1,75 @@
+/**
+ * MIT License
+ *
+ * Copyright (c) 2019 OnPay.io
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#payment .payment_methods .onpay_card_logos {
+    display: block;
+}
+
+/**
+ * Adds styling to card logos when theme does not apply,
+ * but is overridden by the default selector '#payment .payment_methods li img'
+ * provided by the WooCommerce storefront theme,
+ * and is overridden by the default selector '.wc_payment_method > label:first-of-type img'
+ * provided by the Wordpress Twenty Twenty-One theme.
+ */
+.payment_method_onpay_card img,
+.payment_method_onpay_mobilepay img,
+.payment_method_onpay_applepay img,
+.payment_method_onpay_googlepay img,
+.payment_method_onpay_viabill img,
+.payment_method_onpay_anyday img,
+.payment_method_onpay_swish img,
+.payment_method_onpay_vipps img,
+.payment_method_onpay_paypal img {
+    max-height: 26px;
+    max-width: 50px;
+}
+
+#payment .payment_methods .onpay_card_logos > img,
+#payment-method .onpay_card_logos > img {
+    float: unset;
+    display: inline-block;
+    margin: 5px 5px 0 0;
+}
+
+#payment-method .onpay-block-method {
+    align-items: center;
+    display: flex;
+    justify-content: flex-start;
+}
+
+#payment-method .onpay-block-method > img.icon {
+    margin: 0 10px 0 0;
+}
+
+/* Hide Apple Pay and Google Pay methods initially */
+#payment .wc_payment_methods li.payment_method_onpay_applepay,
+#payment .wc_payment_methods li.payment_method_onpay_googlepay {
+    display: none;
+}
+
+#payment .wc_payment_methods li.payment_method_onpay_applepay.show,
+#payment .wc_payment_methods li.payment_method_onpay_googlepay.show {
+    display: inherit;
+}
