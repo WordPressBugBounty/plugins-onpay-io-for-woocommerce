@@ -4,7 +4,7 @@ Tags: onpay, gateway, payment, payment gateway, woocommerce, psp
 Requires at least: 5.8
 Tested up to: 6.5.4
 Requires PHP: 7.4
-Stable tag: 1.0.41
+Stable tag: 1.0.42
 License: MIT
 License URI: https://mit-license.org/
 
@@ -16,9 +16,9 @@ Plugin for WooCommerce, based on the official OnPay PHP SDK. The plugin adds the
 - Validation of orders with callbacks directly from OnPay, outside the context of the cardholders browser.
 - Management of transaction on order pages in backoffice.
 
-Don't  have an OnPay account yet? Order one through <a href="https://dandomain.dk/betalingssystem/priser" target="_blank">DanDomain</a> from DKK 0,- per month.
+Don't  have an OnPay account yet? Order one through <a href="https://dandomain.dk/betalingssystem/priser" target="_blank">DanDomain</a>.
 
-<a href="https://onpay.io/#brands" target="_blank">OnPay sellers</a>
+<a href="https://onpay.io/#forhandlere" target="_blank">OnPay sellers</a>
 
 == Installation ==
 1. Install plugin as any other Wordpress plugin.
@@ -33,6 +33,10 @@ Don't  have an OnPay account yet? Order one through <a href="https://dandomain.d
 2. WooCommerce >= 6.5
 
 == Changelog ==
+
+= [1.0.42] =
+Add card scheme to end of method title, when paying with card.
+Perform complete order in the correct sequence on subscription renewals
 
 = [1.0.41] =
 Added validation for empty values in country helper

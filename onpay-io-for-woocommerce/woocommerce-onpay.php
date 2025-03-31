@@ -30,7 +30,7 @@
 * Author URI: https://onpay.io/
 * Text Domain: wc-onpay
 * Domain Path: /languages
-* Version: 1.0.41
+* Version: 1.0.42
 **/
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -65,7 +65,7 @@ function init_onpay() {
     include_once __DIR__ . '/classes/gateway-klarna.php';
 
     class WC_OnPay extends WC_Payment_Gateway {
-        const PLUGIN_VERSION = '1.0.41';
+        const PLUGIN_VERSION = '1.0.42';
 
         const SETTING_ONPAY_GATEWAY_ID = 'gateway_id';
         const SETTING_ONPAY_SECRET = 'secret';
@@ -150,10 +150,10 @@ function init_onpay() {
             add_filter('woocommerce_settings_'. $this->id, [$this, 'admin_options']);
             add_action('woocommerce_settings_save_'. $this->id, [$this, 'process_admin_options']);
             add_action('woocommerce_api_'. $this->id . '_callback', [$this, 'callback']);
-            add_action('woocommerce_before_checkout_form', [$this, 'declinedReturnMessage']);
-            add_action('woocommerce_thankyou', [$this, 'declinedReturnMessage']);
-            add_action('woocommerce_order_status_completed', [$this, 'orderStatusCompleteEvent']);
+            add_action('woocommerce_before_checkout_form', [$this, 'returnMessage']);
+            add_action('woocommerce_before_thankyou', [$this, 'returnMessage']);
             add_action('woocommerce_scheduled_subscription_payment_onpay_card', [$this, 'subscriptionPayment'], 1, 2);
+            add_action('woocommerce_order_status_completed', [$this, 'orderStatusCompleteEvent']);
             add_action('woocommerce_subscription_cancelled_onpay_card', [$this, 'subscriptionCancellation']);
             add_action('woocommerce_order_refunded', [$this, 'refundEvent'], 10, 2);
             add_action('admin_init', [$this, 'gateway_toggle']);
@@ -237,6 +237,15 @@ function init_onpay() {
                     $this->setOnpayId($order, $onpayNumber);
                     $order->payment_complete($onpayNumber);
                 }
+
+                // Set card type if present
+                $cardType = wc_onpay_query_helper::get_query_value('onpay_cardtype');
+                $method = wc_onpay_query_helper::get_query_value('onpay_method');
+
+                if ('card' === $method && null !== $cardType) {
+                    $this->applyCardTypeToOrder($order, $cardType);
+                }
+
                 // Add remaining data regarding order and save it.
                 $order->add_order_note(__( 'Transaction authorized in OnPay. Remember to capture amount.', 'wc-onpay' ));
                 $order->add_meta_data($this::WC_ONPAY_ID . '_test_mode', wc_onpay_query_helper::get_query_value('onpay_testmode'));
@@ -298,13 +307,25 @@ function init_onpay() {
             return $order;
         }
 
-        public function declinedReturnMessage() {
+        public function returnMessage($orderId) {
             $paymentWindow = new \OnPay\API\PaymentWindow();
             $paymentWindow->setSecret($this->get_option($this::SETTING_ONPAY_SECRET));
             
             $key = wc_onpay_query_helper::get_query_value('order_key');
+            if (null === $key) {
+                $key = wc_onpay_query_helper::get_query_value('key');
+            }
+            $onPayMethod = wc_onpay_query_helper::get_query_value('onpay_method');
+            $onPayCardType = wc_onpay_query_helper::get_query_value('onpay_cardtype');
+
             $orderId = wc_get_order_id_by_order_key($key);
             $order = wc_get_order($orderId);
+
+            // Extend the method title with card type if present and not already applied
+            if ('card' === $onPayMethod && null !== $onPayCardType) {
+                $this->applyCardTypeToOrder($order, $onPayCardType);
+                $order->save();
+            }
             
             $isDeclined = wc_onpay_query_helper::get_query_value('declined_from_onpay');
             if ($isDeclined === '1' && $order && !$order->is_paid()) {
@@ -913,9 +934,11 @@ function init_onpay() {
 
             // Finalize order
             $newOrder->add_order_note(__('Transaction authorized in OnPay. Remember to capture amount.', 'wc-onpay'));
-            $newOrder->payment_complete($onpayNumber);
             $this->setOnpayId($newOrder, $onpayNumber);
             $newOrder->add_meta_data($this::WC_ONPAY_ID . '_test_mode', wc_onpay_query_helper::get_query_value('onpay_testmode'));
+
+            // Mark order as complete. This must be done as one of the last things, since it will trigger the woocommerce_order_status_completed hook.
+            $newOrder->payment_complete($onpayNumber);
             $newOrder->save_meta_data();
         }
 
@@ -1004,6 +1027,14 @@ function init_onpay() {
                 return true;
             }
             return false;
+        }
+
+        function applyCardTypeToOrder($order, $cardType) {
+            $currentMethodName = $order->get_payment_method_title();
+            $methodExtension = ' - ' . ucfirst($cardType);
+            if (substr($currentMethodName, 0 - strlen($methodExtension)) !== $methodExtension) {
+                $order->set_payment_method_title($order->get_payment_method_title() . $methodExtension);
+            }
         }
 
         private function getGateways() {
@@ -1176,7 +1207,7 @@ function init_onpay() {
             ];
         }
 
-        private function setOnpayId(WC_Order $wcOrder, string$transactionId) {
+        private function setOnpayId(WC_Order $wcOrder, string $transactionId) {
             $key = '_onpay_id';
             if ($wcOrder->meta_exists($key)) {
                 $wcOrder->update_meta_data($key, $transactionId);
