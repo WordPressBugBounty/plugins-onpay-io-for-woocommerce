@@ -2,12 +2,11 @@
 
 namespace WoocommerceOnpay\OnPay;
 
-use WoocommerceOnpay\fkooman\OAuth\Client\ErrorLogger;
-use WoocommerceOnpay\fkooman\OAuth\Client\Http\CurlHttpClient;
-use WoocommerceOnpay\fkooman\OAuth\Client\Http\Exception\CurlException;
-use WoocommerceOnpay\fkooman\OAuth\Client\Http\Request;
-use WoocommerceOnpay\fkooman\OAuth\Client\Http\Response;
-use WoocommerceOnpay\fkooman\OAuth\Client\Provider;
+use WoocommerceOnpay\OnPay\OAuth\Client\Http\CurlHttpClient;
+use WoocommerceOnpay\OnPay\OAuth\Client\Http\Exception\CurlException;
+use WoocommerceOnpay\OnPay\OAuth\Client\Http\Response;
+use WoocommerceOnpay\OnPay\OAuth\Client\Provider;
+use WoocommerceOnpay\OnPay\OAuth\Client\Http\Request;
 use WoocommerceOnpay\OnPay\API\Exception\ApiException;
 use WoocommerceOnpay\OnPay\API\Exception\TokenException;
 use WoocommerceOnpay\OnPay\API\Exception\ConnectionException;
@@ -20,7 +19,7 @@ use WoocommerceOnpay\OnPay\API\Http\Response as HttpResponse;
 use WoocommerceOnpay\OnPay\OAuth\Client\OAuthClient;
 class OnPayAPI
 {
-    const SDK_VERSION = '1.0.29';
+    const SDK_VERSION = '1.0.34';
     /**
      * @var InternalTokenStorage
      */
@@ -54,7 +53,7 @@ class OnPayAPI
      */
     protected $gatewayService;
     /**
-     * Not really used in the context of this implementation of fkooman/oauth2-client, however we set it as the same value for consistency.
+     * Not really used in the context of this implementation of OnPay/oauth2-client, however we set it as the same value for consistency.
      *
      * @var string
      */
@@ -109,7 +108,7 @@ class OnPayAPI
         }
         $this->tokenStorage = new InternalTokenStorage($tokenStorage, $authUrl, $options['client_id'], $this->scope);
         $this->oauth2Provider = new Provider($this->options['client_id'], '', $authUrl, $this->options['base_uri'] . '/oauth2/access_token');
-        $this->httpClient = new CurlHttpClientLogger([], new ErrorLogger());
+        $this->httpClient = new CurlHttpClientLogger([]);
         if (\array_key_exists('platform', $this->options)) {
             $this->platform = $this->options['platform'];
         } else {
@@ -196,16 +195,16 @@ class OnPayAPI
     public function get($url)
     {
         try {
-            $request = Request::get($this->options['base_uri'] . '/v1/' . $url, ['User-Agent' => $this->platform]);
+            $request = Request::get($this->options['base_uri'] . '/v1/' . $url, [], ['User-Agent' => $this->platform]);
             $response = $this->getClient()->send($this->oauth2Provider, $this->userId, $this->scope, $request);
             $this->setLastHttpRequest($this->httpClient->getLastRequest());
             $this->setLastHttpResponse($this->httpClient->getLastResponse());
             return $this->handleResponse($response);
         } catch (CurlException $e) {
             throw new ConnectionException($e->getMessage(), $e->getCode(), $e);
-        } catch (\WoocommerceOnpay\fkooman\OAuth\Client\Exception\TokenException $e) {
+        } catch (\WoocommerceOnpay\OnPay\OAuth\Client\Exception\TokenException $e) {
             throw new TokenException($e->getMessage(), $e->getCode(), $e);
-        } catch (\WoocommerceOnpay\fkooman\OAUth\Client\Exception\AccessTokenException $e) {
+        } catch (\WoocommerceOnpay\OnPay\OAUth\Client\Exception\AccessTokenException $e) {
             throw new TokenException($e->getMessage(), $e->getCode(), $e);
         }
     }
@@ -227,7 +226,7 @@ class OnPayAPI
             return $this->handleResponse($response);
         } catch (CurlException $e) {
             throw new ConnectionException($e->getMessage(), $e->getCode(), $e);
-        } catch (\WoocommerceOnpay\fkooman\OAuth\Client\Exception\TokenException $e) {
+        } catch (\WoocommerceOnpay\OnPay\OAuth\Client\Exception\TokenException $e) {
             throw new TokenException($e->getMessage(), $e->getCode(), $e);
         }
     }

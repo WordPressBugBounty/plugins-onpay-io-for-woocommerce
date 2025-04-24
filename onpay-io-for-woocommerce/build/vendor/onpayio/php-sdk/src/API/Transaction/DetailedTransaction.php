@@ -12,6 +12,7 @@ class DetailedTransaction extends SimpleTransaction
     public function __construct(array $data)
     {
         parent::__construct($data);
+        $this->fee = isset($data['fee']) ? $data['fee'] : null;
         $this->expiryYear = isset($data['expiry_year']) ? $data['expiry_year'] : null;
         $this->expiryMonth = isset($data['expiry_month']) ? $data['expiry_month'] : null;
         $this->cardCountry = isset($data['card_country']) ? $data['card_country'] : null;
@@ -74,4 +75,8 @@ class DetailedTransaction extends SimpleTransaction
      * @var string
      */
     public $subscriptionUuid;
+    /**
+     * @var int
+     */
+    public $fee = null;
 }

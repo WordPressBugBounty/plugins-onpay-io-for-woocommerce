@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.43] - 2025-04-23
+- Properly sanitize outputted strings.
+- Added support for surcharge fee feature
+
 ## [1.0.42] - 2025-03-31
 - Add card scheme to end of method title, when paying with card.
 - Perform complete order in the correct sequence on subscription renewals

@@ -52,6 +52,8 @@ class PaymentWindow
      * @var Cart|null
      */
     private $cart = null;
+    private $surcharge_enabled = null;
+    private $surcharge_vat_rate = null;
     private $availableFields;
     private $requiredFields;
     private $actionUrl = "https://onpay.io/window/v3/";
@@ -60,7 +62,7 @@ class PaymentWindow
      */
     public function __construct()
     {
-        $this->availableFields = ["gatewayId", "currency", "amount", "reference", "acceptUrl", "type", "_3dsecure", "language", "declineUrl", "callbackUrl", "design", "testMode", "method", 'delivery_disabled', 'subscription_with_transaction', 'website', 'platform', 'expiration'];
+        $this->availableFields = ["gatewayId", "currency", "amount", "reference", "acceptUrl", "type", "_3dsecure", "language", "declineUrl", "callbackUrl", "design", "testMode", "method", 'delivery_disabled', 'subscription_with_transaction', 'website', 'platform', 'expiration', 'surcharge_enabled', 'surcharge_vat_rate'];
         $this->requiredFields = ["gatewayId", "currency", "reference", "acceptUrl"];
         $this->platform = self::SDK_VERSION_STRING;
     }
@@ -520,5 +522,33 @@ class PaymentWindow
         } else {
             $this->subscription_with_transaction = null;
         }
+    }
+    /**
+     * @param bool $surcharge_enabled
+     */
+    public function setSurchargeEnabled($surcharge_enabled)
+    {
+        $this->surcharge_enabled = $surcharge_enabled;
+    }
+    /**
+     * @return bool
+     */
+    public function isSurcharge_enabled()
+    {
+        return $this->surcharge_enabled;
+    }
+    /**
+     * @param int $surcharge_vat_rate
+     */
+    public function setSurchargeVatRate($surcharge_vat_rate)
+    {
+        $this->surcharge_vat_rate = $surcharge_vat_rate;
+    }
+    /**
+     * @return int
+     */
+    public function getSurchargeVatRate()
+    {
+        return $this->surcharge_vat_rate;
     }
 }

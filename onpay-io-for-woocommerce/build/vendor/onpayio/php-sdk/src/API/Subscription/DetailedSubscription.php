@@ -22,6 +22,7 @@ class DetailedSubscription extends SimpleSubscription
         $this->cardBin = isset($data['card_bin']) ? $data['card_bin'] : null;
         $this->ip = isset($data['ip']) ? $data['ip'] : null;
         $this->ipCountry = isset($data['ip_country']) ? $data['ip_country'] : null;
+        $this->fee = isset($data['fee']) ? $data['fee'] : null;
         foreach ($data['history'] as $history) {
             $historyItem = new SubscriptionHistory($history);
             $this->history[] = $historyItem;
@@ -63,4 +64,8 @@ class DetailedSubscription extends SimpleSubscription
      * @var SimpleTransaction[]
      */
     public $transactions = [];
+    /**
+     * @var int
+     */
+    public $fee = null;
 }

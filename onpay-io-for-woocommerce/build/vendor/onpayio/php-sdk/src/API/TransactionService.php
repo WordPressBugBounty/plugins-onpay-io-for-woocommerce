@@ -2,6 +2,7 @@
 
 namespace WoocommerceOnpay\OnPay\API;
 
+use WoocommerceOnpay\OnPay\API\Exception\ApiException;
 use WoocommerceOnpay\OnPay\API\Transaction\DetailedTransaction;
 use WoocommerceOnpay\OnPay\API\Transaction\SimpleTransaction;
 use WoocommerceOnpay\OnPay\API\Transaction\TransactionCollection;
@@ -39,12 +40,17 @@ class TransactionService
      * @param null $status
      * @param null $dateAfter
      * @param null $dateBefore
+     * @param string $direction
      * @return TransactionCollection
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function getTransactions($page = null, $pageSize = null, $orderBy = null, $query = null, $status = null, $dateAfter = null, $dateBefore = null)
+    public function getTransactions($page = null, $pageSize = null, $orderBy = null, $query = null, $status = null, $dateAfter = null, $dateBefore = null, $direction = 'DESC')
     {
-        $queryString = \http_build_query(['page' => $page, 'page_size' => $pageSize, 'order_by' => $orderBy, 'query' => $query, 'status' => $status, 'date_after' => $dateAfter, 'date_before' => $dateBefore]);
+        $direction = \strtoupper($direction);
+        if ($direction !== 'ASC') {
+            $direction = 'DESC';
+        }
+        $queryString = \http_build_query(['page' => $page, 'page_size' => $pageSize, 'order_by' => $orderBy, 'query' => $query, 'status' => $status, 'date_after' => $dateAfter, 'date_before' => $dateBefore, 'direction' => $direction]);
         $results = $this->api->get('transaction/?' . $queryString);
         $transactions = [];
         foreach ($results['data'] as $result) {
@@ -58,19 +64,39 @@ class TransactionService
         return $collection;
     }
     /**
-     * Capture a transaction
+     * Perform Capture of transaction.
+     * 
+     * $amount and $postActionChargeAmount are mutually exclusive and can not both be used together
+     * 
+     * Using $amount, the transaction will have the supplied value captured.
+     * Using $postActionChargeAmount, this value represents the charged value expected on the transaction after this action has completed. When this value is present the amount captured on the transaction will be automatically calculated to ensure this value is honoured.
+     * 
+     * If none of the amount parameters are supplied, the entire available amount will be captured.
+     * 
      * @param string $transactionNumber
+     * @param int|null $amount
+     * @param int|null $postActionChargeAmount
      * @return DetailedTransaction
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function captureTransaction($transactionNumber, $amount = null)
+    public function captureTransaction($transactionNumber, $amount = null, $postActionChargeAmount = null)
     {
-        if (null === $amount) {
-            $result = $this->api->post('transaction/' . $transactionNumber . '/capture');
+        $jsonBody = null;
+        if (null !== $amount && null !== $postActionChargeAmount) {
+            // Both amount parameters not allowed at the same time
+            throw new ApiException('$amount and $postActionChargeAmount are mutually exclusive and can not both be used together');
         } else {
-            $jsonBody = ['data' => ['amount' => (int) $amount]];
-            $result = $this->api->post('transaction/' . $transactionNumber . '/capture', $jsonBody);
+            if (null !== $amount) {
+                // Amount parameter supplied, add to json body
+                $jsonBody = ['data' => ['amount' => (int) $amount]];
+            } else {
+                if (null !== $postActionChargeAmount) {
+                    // PostActionCaptureAmount parameter supplied, add to json body
+                    $jsonBody = ['data' => ['postActionChargeAmount' => (int) $postActionChargeAmount]];
+                }
+            }
         }
+        $result = $this->api->post('transaction/' . $transactionNumber . '/capture', $jsonBody);
         $transaction = new DetailedTransaction($result['data']);
         $transaction->setLinks($result['links']);
         return $transaction;
@@ -88,19 +114,39 @@ class TransactionService
         return $transaction;
     }
     /**
+     * Perform refund of transaction.
+     * 
+     * $amount and $postActionRefundAmount are mutually exclusive and can not both be used together
+     * 
+     * Using $amount, the transaction will have the supplied value refunded.
+     * Using $postActionRefundAmount, this value represents the refunded value expected on the transaction after this action has completed. When this value is present the amount refunded on the transaction will be automatically calculated to ensure this value is honoured.
+     * 
+     * If none of the amount parameters are supplied, the entire available amount will be refunded.
+     * 
      * @param string $transactionNumber
      * @param int|null $amount
+     * @param int|null $postActionRefundAmount
      * @return DetailedTransaction
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function refundTransaction($transactionNumber, $amount = null)
+    public function refundTransaction($transactionNumber, $amount = null, $postActionRefundAmount = null)
     {
-        if (null === $amount) {
-            $result = $this->api->post('transaction/' . $transactionNumber . '/refund');
+        $jsonBody = null;
+        if (null !== $amount && null !== $postActionRefundAmount) {
+            // Both amount parameters not allowed at the same time
+            throw new ApiException('$amount and $postActionRefundAmount are mutually exclusive and can not both be used together');
         } else {
-            $jsonBody = ['data' => ['amount' => (int) $amount]];
-            $result = $this->api->post('transaction/' . $transactionNumber . '/refund', $jsonBody);
+            if (null !== $amount) {
+                // Amount parameter supplied, add to json body
+                $jsonBody = ['data' => ['amount' => (int) $amount]];
+            } else {
+                if (null !== $postActionRefundAmount) {
+                    // PostActionRefundAmount parameter supplied, add to json body
+                    $jsonBody = ['data' => ['postActionRefundAmount' => (int) $postActionRefundAmount]];
+                }
+            }
         }
+        $result = $this->api->post('transaction/' . $transactionNumber . '/refund', $jsonBody);
         $transaction = new DetailedTransaction($result['data']);
         $transaction->setLinks($result['links']);
         return $transaction;

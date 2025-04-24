@@ -30,7 +30,7 @@
 * Author URI: https://onpay.io/
 * Text Domain: wc-onpay
 * Domain Path: /languages
-* Version: 1.0.42
+* Version: 1.0.43
 **/
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -51,6 +51,7 @@ function init_onpay() {
     include_once __DIR__ . '/classes/country-helper.php';
     include_once __DIR__ . '/classes/order-helper.php';
     include_once __DIR__ . '/classes/query-helper.php';
+    include_once __DIR__ . '/classes/surcharge-helper.php';
     include_once __DIR__ . '/classes/token-storage.php';
 
     include_once __DIR__ . '/classes/gateway-card.php';
@@ -65,7 +66,7 @@ function init_onpay() {
     include_once __DIR__ . '/classes/gateway-klarna.php';
 
     class WC_OnPay extends WC_Payment_Gateway {
-        const PLUGIN_VERSION = '1.0.42';
+        const PLUGIN_VERSION = '1.0.43';
 
         const SETTING_ONPAY_GATEWAY_ID = 'gateway_id';
         const SETTING_ONPAY_SECRET = 'secret';
@@ -86,6 +87,9 @@ function init_onpay() {
         const SETTING_ONPAY_CARDLOGOS = 'card_logos';
         const SETTING_ONPAY_STATUS_AUTOCAPTURE = 'status_autocapture';
         const SETTING_ONPAY_REFUND_INTEGRATION = 'refund_integration';
+        const SETTING_ONPAY_SURCHARGE_ENABLE = 'surcharge_enable';
+        const SETTING_ONPAY_SURCHARGE_VAT_RATE = 'surcharge_vat_rate';
+        const SETTING_ONPAY_SURCHARGE_VAT_OVERRIDE = 'surcharge_vat_override';
 
         const WC_ONPAY_ID = 'wc_onpay';
         const WC_ONPAY_SETTINGS_ID = 'onpay';
@@ -186,10 +190,13 @@ function init_onpay() {
             $paymentWindow = new \OnPay\API\PaymentWindow();
             $paymentWindow->setSecret($this->get_option(self::SETTING_ONPAY_SECRET));
 
-            // Get IDs and reference
+            // Get query values from callback
             $onpayNumber = wc_onpay_query_helper::get_query_value('onpay_number');
             $onpayReference = wc_onpay_query_helper::get_query_value('onpay_reference');
-            $createdTransactionNumber = wc_onpay_query_helper::get_query_value('onpay_number_transaction');
+            $onpayTransactionNumber = wc_onpay_query_helper::get_query_value('onpay_number_transaction');
+            $onpayFee = wc_onpay_query_helper::get_query_value('onpay_fee');
+            $onpayType = wc_onpay_query_helper::get_query_value('onpay_type');
+            $onpayTestmode = wc_onpay_query_helper::get_query_value('onpay_testmode');
 
             // Validate query parameters and check that onpay_number is present
             if (!$paymentWindow->validatePayment(wc_onpay_query_helper::get_query()) || null === $onpayNumber) {
@@ -203,11 +210,17 @@ function init_onpay() {
                 $this->json_response('Order not found', true, 400);
             }
 
-            $type = wc_onpay_query_helper::get_query_value('onpay_type');
+            // Get customer
+            $customer = new WC_Customer($order->get_customer_id());
+
+            // Get currency of order
+            $currencyHelper = new wc_onpay_currency_helper();
+            $orderCurrency = $currencyHelper->fromAlpha3($order->get_currency());
+
             // Is order in pending state
             if ($order->has_status('pending')) {
                 // If we're dealing with a subscription
-                if ($type === 'subscription') {
+                if ($onpayType === 'subscription') {
                     // Write subscription id to subscription order and save it. This is the created subscription
                     $wcSubscriptions = wcs_get_subscriptions_for_order($order->get_id());
                     foreach ($wcSubscriptions as $id => $subscription) {
@@ -218,44 +231,73 @@ function init_onpay() {
 
                     // If we're dealing with an renewal, we need to create a new transaction from the subscription
                     if ($orderHelper->isOrderSubscriptionRenewal($order) || $orderHelper->isOrderSubscriptionEarlyRenewal($order)) {
-                        $currencyHelper = new wc_onpay_currency_helper();
-                        $orderCurrency = $currencyHelper->fromAlpha3($order->get_currency());
+                        // Fetch surcharge settings
+                        $surchargeEnabled = $this->get_option(WC_OnPay::SETTING_ONPAY_SURCHARGE_ENABLE) === 'yes';
+                        $surchargeVatRate = 0;
+
+                        // If surcharge is enabled.
+                        if(true === $surchargeEnabled) {
+                            // Get surcharge VAT rate and format it.
+                            $surchargeVatRateOption = $this->get_option(WC_OnPay::SETTING_ONPAY_SURCHARGE_VAT_RATE);
+                            $surchargeVatRate = wc_onpay_surcharge_helper::formatSurchargeRate(wc_onpay_surcharge_helper::getSurchargeVatRate($surchargeVatRateOption, $customer, $order));
+                            wc_onpay_surcharge_helper::saveOrderTaxClass($order, $surchargeVatRateOption); // Save rate to order meta for later use
+                        }
+
                         $orderAmount = $currencyHelper->majorToMinor($order->get_total(), $orderCurrency->numeric, '.');
+                        
                         $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($onpayNumber);
-                        $createdTransaction = $this->get_onpay_client()->subscription()->createTransactionFromSubscription($onpaySubscription->uuid, $orderAmount, strval($order->get_order_number()));
-                        $createdTransactionNumber = $createdTransaction->transactionNumber;
+                        $createdTransaction = $this->get_onpay_client()->subscription()->createTransactionFromSubscription(
+                            $onpaySubscription->uuid, 
+                            $orderAmount, 
+                            strval($order->get_order_number()),
+                            $surchargeEnabled,
+                            $surchargeVatRate
+                        );
+
+                        // Set transaction number to the one returned from OnPay authorization
+                        $onpayTransactionNumber = $createdTransaction->transactionNumber;
+
+                        // Set fee value to the one returned from OnPay authorization
+                        $onpayFee = $createdTransaction->fee;
                     }
+                }
+
+                // Set card type if present
+                $onpayCardType = wc_onpay_query_helper::get_query_value('onpay_cardtype');
+                $onpayMethod = wc_onpay_query_helper::get_query_value('onpay_method');
+                if ('card' === $onpayMethod && null !== $onpayCardType) {
+                    $this->applyCardTypeToOrder($order, $onpayCardType);
+                }
+
+                // Apply fee if present
+                if (null !== $onpayFee) {
+                    $itemFee = wc_onpay_surcharge_helper::getSurchargeItemFee((int)$onpayFee, $order, $customer);
+                    // Add Fee item to the order and recalculate totals
+                    $order->add_item($itemFee);
+                    $order->calculate_totals(true);
+                    $order->add_order_note(__('Card surcharge fee from OnPay added to order', 'wc-onpay'));
                 }
 
                 // Completion of order
                 // Check if we have an ID of a created transaction, and use that for reference if so
-                if (null !== $createdTransactionNumber) {
-                    $this->setOnpayId($order, $createdTransactionNumber);
-                    $order->payment_complete($createdTransactionNumber);
+                if (null !== $onpayTransactionNumber) {
+                    $this->setOnpayId($order, $onpayTransactionNumber);
+                    $order->payment_complete($onpayTransactionNumber);
                 } else {
                     // Otherwise use the number provided
                     $this->setOnpayId($order, $onpayNumber);
                     $order->payment_complete($onpayNumber);
                 }
 
-                // Set card type if present
-                $cardType = wc_onpay_query_helper::get_query_value('onpay_cardtype');
-                $method = wc_onpay_query_helper::get_query_value('onpay_method');
-
-                if ('card' === $method && null !== $cardType) {
-                    $this->applyCardTypeToOrder($order, $cardType);
-                }
-
                 // Add remaining data regarding order and save it.
                 $order->add_order_note(__( 'Transaction authorized in OnPay. Remember to capture amount.', 'wc-onpay' ));
-                $order->add_meta_data($this::WC_ONPAY_ID . '_test_mode', wc_onpay_query_helper::get_query_value('onpay_testmode'));
+                $order->add_meta_data($this::WC_ONPAY_ID . '_test_mode', $onpayTestmode);
                 $order->save_meta_data();
                 $order->save();
             }
-            
-            if ($type === 'subscription' && null !== wc_onpay_query_helper::get_query_value('update_method')) { // Order is subscription and an update of method is requested.
-                // Set OnpayNumber from callback query
-                $onpayNumber = wc_onpay_query_helper::get_query_value('onpay_number');
+
+            $onpayUpdateMethod = wc_onpay_query_helper::get_query_value('update_method');
+            if ($onpayType === 'subscription' && null !== $onpayUpdateMethod) { // Order is subscription and an update of method is requested.
                 // Try getting original subscription Id
                 $originalSubscription = get_post_meta($order->get_id(), '_subscription_renewal', true);
                 if ($originalSubscription !== '') {
@@ -331,7 +373,7 @@ function init_onpay() {
             if ($isDeclined === '1' && $order && !$order->is_paid()) {
                 // Order is not paid yet and user is returned through declined url from OnPay.
                 // Valid OnPay URL params are also present, which indicates that user did not simply quit payment, but an actual error was encountered.
-                echo '<div class="woocommerce-error">' . __('The payment failed. Please try again.', 'wc-onpay') . '</div>';
+                $this->outputString('<div class="woocommerce-error">' . __('The payment failed. Please try again.', 'wc-onpay') . '</div>');
             }
         }
 
@@ -355,7 +397,7 @@ function init_onpay() {
             } catch (OnPay\API\Exception\ConnectionException $exception) { // No connection to OnPay API
                 $html .= '<h3>' . __('No connection to OnPay', 'wc-onpay') . '</h3>';
                 $GLOBALS['hide_save_button'] = true;
-                echo ent2ncr($html);
+                $this->outputString($html);
                 return;
             } catch (OnPay\API\Exception\TokenException $exception) { // Something's wrong with the token, print link to reauth
                 $html .= $this->getOnboardingHtml($onpayApi->authorize());
@@ -389,7 +431,7 @@ function init_onpay() {
                 $html .= '</div></div>';
             }
 
-            echo ent2ncr($html);
+            $this->outputString($html);
         }
 
         function admin_options_sections($currentSection) {
@@ -402,6 +444,7 @@ function init_onpay() {
                 ''          => __('General settings', 'wc-onpay'),
                 'methods'   => __('Payment methods', 'wc-onpay'),
                 'window'    => __('Payment window', 'wc-onpay'),
+                'surcharge_fee' => __('Surcharge fees', 'wc-onpay'),
             ];
         
             // Start printing list of sections
@@ -432,6 +475,21 @@ function init_onpay() {
             $section = wc_onpay_query_helper::get_query_value('section');
             // Init form for section
             $this->init_section_form($section);
+
+            // Fetch post data
+            $postData = $this->get_post_data();
+            // Look for surcharge fee override
+            $surchargeOverrideKey = 'woocommerce_' . $this->id . '_' . self::SETTING_ONPAY_SURCHARGE_VAT_OVERRIDE;
+            if (array_key_exists($surchargeOverrideKey, $postData)) {
+                // Validate and clean up surcharge fee vat override value posted.
+                // This is done similar to the logic that formats percentage values for WooCommerce tax rates.
+                $overrideRate = wc_clean( wp_unslash($postData[$surchargeOverrideKey]));
+                if ('' !== $overrideRate) {
+                    $overrideRate = number_format((float)$overrideRate, 2, '.', '');
+                    $postData[$surchargeOverrideKey] = $overrideRate;
+                    $this->set_post_data($postData);
+                }
+            }
             
             parent::process_admin_options();
         }
@@ -444,6 +502,8 @@ function init_onpay() {
                 $this->init_method_settings();
             } else if ('window' === $section) {
                 $this->init_window_settings();
+            } else if ('surcharge_fee' === $section) {
+                $this->init_surcharge_fee_settings();
             }
         }
 
@@ -567,6 +627,23 @@ function init_onpay() {
                     'label' => ' ',
                     'type' => 'checkbox',
                     'default' => 'no',
+                ],
+            ];
+		}
+
+        private function init_surcharge_fee_settings() {
+            $this->form_fields = [
+                self::SETTING_ONPAY_SURCHARGE_ENABLE => [
+                    'title' => __('Enable surcharge fees', 'wc-onpay'),
+                    'label' => ' ',
+                    'type' => 'checkbox',
+                    'default' => 'no',
+                ],
+                self::SETTING_ONPAY_SURCHARGE_VAT_RATE => [
+                    'title' => __('VAT rate for surcharge fees', 'wc-onpay'),
+                    'type' => 'select',
+                    'options' => $this->get_tax_rate_options(),
+                    'description' => __('Add or edit rates in WooCommerce tax settings.', 'wc-onpay') . '<br>' . __('"Automatic from cart" will pick taxclass of the higehst value item in the cart.', 'wc-onpay')
                 ],
             ];
 		}
@@ -714,10 +791,10 @@ function init_onpay() {
             try {
                 $onpayApi->ping();
             } catch (OnPay\API\Exception\ConnectionException $exception) { // No connection to OnPay API
-                echo ent2ncr('<h3>' . __('No connection to OnPay', 'wc-onpay') . '</h3>');
+                $this->outputString('<h3>' . __('No connection to OnPay', 'wc-onpay') . '</h3>');
                 return;
             } catch (OnPay\API\Exception\TokenException $exception) { // Something's wrong with the token, print link to reauth
-                echo ent2ncr('<h3>' . __('Invalid OnPay token, please login on settings page', 'wc-onpay') . '</h3>');
+                $this->outputString('<h3>' . __('Invalid OnPay token, please login on settings page', 'wc-onpay') . '</h3>');
                 return;
             }
 
@@ -727,12 +804,12 @@ function init_onpay() {
 
             // If order is pending, no need to find the transaction.
             if (null === $transactionId || $order->has_status('pending')) {
-                echo __('Pending payment', 'wc-onpay');
+                $this->outputString(__('Pending payment', 'wc-onpay'));
             } else {
                 try {
                     $transaction = $onpayApi->transaction()->getTransaction($transactionId);
                 } catch (OnPay\API\Exception\ApiException $exception) {
-                    echo __('Error: ', 'wc-onpay') . $exception->getMessage();
+                    $this->outputString(__('Error: ', 'wc-onpay') . $this->cleanOutput($exception->getMessage()));
                     exit;
                 }
 
@@ -756,19 +833,24 @@ function init_onpay() {
                 $html .= '<td style="vertical-align: top;">';
                 $html .= '<p><strong>' . __('Transaction details', 'wc-onpay') . ':</strong></p>';
                 $html .= '<table class="widefat striped"><tbody>';
-                $html .= '<tr><td><strong>' . __('Status', 'wc-onpay') . '</strong></td><td>' . $transaction->status . '</td></tr>';
+                $html .= '<tr><td><strong>' . __('Status', 'wc-onpay') . '</strong></td><td>' . $this->cleanOutput($transaction->status) . '</td></tr>';
 
                 $cardType = $transaction->cardType;
                 if ($cardType === null) {
                     $cardType = $transaction->acquirer;
                 }
 
-                $html .= '<tr><td><strong>' . __('Card type', 'wc-onpay') . '</strong></td><td>' . $cardType . '</td></tr>';
+                $html .= '<tr><td><strong>' . __('Card type', 'wc-onpay') . '</strong></td><td>' . $this->cleanOutput($cardType) . '</td></tr>';
 
-                $html .= '<tr><td><strong>' . __('Transaction number', 'wc-onpay') . '</strong></td><td>' . $transaction->transactionNumber . '</td></tr>';
-                $html .= '<tr><td><strong>' . __('Amount', 'wc-onpay') . '</strong></td><td>' . $currency->alpha3 . ' ' . $amount . '</td></tr>';
-                $html .= '<tr><td><strong>' . __('Charged', 'wc-onpay') . '</strong></td><td>' . $currency->alpha3 . ' ' . $charged . '</td></tr>';
-                $html .= '<tr><td><strong>' . __('Refunded', 'wc-onpay') . '</strong></td><td>' . $currency->alpha3 . ' ' . $refunded . '</td></tr>';
+                $html .= '<tr><td><strong>' . __('Transaction number', 'wc-onpay') . '</strong></td><td>' . $this->cleanOutput($transaction->transactionNumber) . '</td></tr>';
+                $html .= '<tr><td><strong>' . __('Amount', 'wc-onpay') . '</strong></td><td>' . $this->cleanOutput($currency->alpha3 . ' ' . $amount) . '</td></tr>';
+                $html .= '<tr><td><strong>' . __('Charged', 'wc-onpay') . '</strong></td><td>' . $this->cleanOutput($currency->alpha3 . ' ' . $charged) . '</td></tr>';
+                $html .= '<tr><td><strong>' . __('Refunded', 'wc-onpay') . '</strong></td><td>' . $this->cleanOutput($currency->alpha3 . ' ' . $refunded) . '</td></tr>';
+
+                if (null !== $transaction->fee) {
+                    $fee = $currencyHelper->minorToMajor($transaction->fee, $currency->numeric);
+                    $html .= '<tr><td><strong>' . __('Card surcharge fee', 'wc-onpay') . '</strong></td><td>' . $this->cleanOutput($currency->alpha3 . ' ' . $fee) . '</td></tr>';
+                }
 
                 $html .= '<tr><td colspan="2">';
                 $html .= '<a href="' . $this->getOnPayManageLink($transaction->uuid, 'transaction') . '" target="_blank" class="button button-small button-secondary" id="button_onpay_manage_link">' . __('View transaction in OnPay', 'wc-onpay') . '</a>';
@@ -789,11 +871,11 @@ function init_onpay() {
                 foreach ($transaction->history as $history) {
                    $history->dateTime->setTimeZone(wp_timezone());
                    $html .= '<tr>';
-                   $html .= '<td>' . $history->dateTime->format('Y-m-d H:i:s') . '</td>';
-                   $html .= '<td>' . $history->action . '</td>';
-                   $html .= '<td>' . $currency->alpha3 . ' ' . $currencyHelper->minorToMajor($history->amount, $currency->numeric) . '</td>';
-                   $html .= '<td>' . $history->author . '</td>';
-                   $html .= '<td>' . $history->ip . '</td>';
+                   $html .= '<td>' . $this->cleanOutput($history->dateTime->format('Y-m-d H:i:s')) . '</td>';
+                   $html .= '<td>' . $this->cleanOutput($history->action) . '</td>';
+                   $html .= '<td>' . $this->cleanOutput($currency->alpha3 . ' ' . $currencyHelper->minorToMajor($history->amount, $currency->numeric)) . '</td>';
+                   $html .= '<td>' . $this->cleanOutput($history->author) . '</td>';
+                   $html .= '<td>' . $this->cleanOutput($history->ip) . '</td>';
                    $html .= '</tr>';
                 }
                 $html .= '</tbody></table>';
@@ -832,7 +914,7 @@ function init_onpay() {
                 // Hidden capture form, revealed by button above
                 $html .= '<div id="onpay_action_capture" style="display: none;">';
                 $html .= '<p>' . __('Please enter amount to capture', 'wc-onpay') . '</p>';
-                $html .= '<input type="text" name="onpay_capture_amount" value="' . $availableAmount . '">';
+                $html .= '<input type="text" name="onpay_capture_amount" value="' . $this->cleanOutput($availableAmount) . '">';
                 $html .= '<hr />';
                 $html .= '<input class="button-primary" type="submit" name="onpay_capture" value="' . __('Capture', 'wc-onpay') . '">&nbsp;';
                 $html .= '<button class="button-secondary" id="button_onpay_capture_hide">' . __('Cancel', 'wc-onpay') . '</button>';
@@ -842,7 +924,7 @@ function init_onpay() {
                 // Hidden refund form, revealed by button above
                 $html .= '<div id="onpay_action_refund" style="display: none;">';
                 $html .= '<p>' . __('Please enter amount to refund', 'wc-onpay') . '</p>';
-                $html .= '<input type="text" name="onpay_refund_amount" value="' . $availableCharged . '">';
+                $html .= '<input type="text" name="onpay_refund_amount" value="' . $this->cleanOutput($availableCharged) . '">';
                 $html .= '<hr />';
                 $html .= '<input class="button-primary" type="submit" name="onpay_refund" value="' . __('Refund', 'wc-onpay') . '">&nbsp;';
                 $html .= '<button class="button-secondary" id="button_onpay_refund_hide">' . __('Cancel', 'wc-onpay') . '</button>';
@@ -858,7 +940,7 @@ function init_onpay() {
                 $html .= '</div>';
                 wc_enqueue_js('$("#button_onpay_cancel_hide").on("click", function(event) {event.preventDefault(); $("#onpay_action_cancel").slideUp(); $("#onpay_action_buttons").slideDown(); })');
             }
-            echo ent2ncr($html);
+            $this->outputString($html);
         }
 
         /**
@@ -908,12 +990,27 @@ function init_onpay() {
             // Get subscription order
             $subscriptionOrder = new WC_Subscription($newOrder->get_meta('_subscription_renewal'));
             $subscriptionId = $this->getOnpayId($subscriptionOrder);
+            
+            // Get customer
+            $customer = new WC_Customer($subscriptionOrder->get_customer_id());
 
             // Create transaction from subscription in OnPay.
             $currencyHelper = new wc_onpay_currency_helper();
             $orderCurrency = $currencyHelper->fromAlpha3($newOrder->get_currency());
             $orderAmount = $currencyHelper->majorToMinor($newOrder->get_total(), $orderCurrency->numeric, '.');
             $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($subscriptionId);
+            
+            // Fetch surcharge settings
+            $surchargeEnabled = $this->get_option(WC_OnPay::SETTING_ONPAY_SURCHARGE_ENABLE) === 'yes';
+            $surchargeVatRate = 0;
+
+            // If surcharge is enabled.
+            if(true === $surchargeEnabled) {
+                // Get surcharge VAT rate and format it.
+                $surchargeVatRateOption = $this->get_option(WC_OnPay::SETTING_ONPAY_SURCHARGE_VAT_RATE);
+                $surchargeVatRate = wc_onpay_surcharge_helper::formatSurchargeRate(wc_onpay_surcharge_helper::getSurchargeVatRate($surchargeVatRateOption, $customer, $subscriptionOrder));
+                wc_onpay_surcharge_helper::saveOrderTaxClass($subscriptionOrder, $surchargeVatRateOption); // Save rate to order meta for later use
+            }
 
             // Subscription no longer active.
             if ($onpaySubscription->status !== 'active') {
@@ -923,7 +1020,13 @@ function init_onpay() {
             }
 
             try {
-                $createdOnpayTransaction = $this->get_onpay_client()->subscription()->createTransactionFromSubscription($onpaySubscription->uuid, $orderAmount, strval($newOrder->get_order_number()));
+                $createdOnpayTransaction = $this->get_onpay_client()->subscription()->createTransactionFromSubscription(
+                    $onpaySubscription->uuid, 
+                    $orderAmount, 
+                    strval($newOrder->get_order_number()),
+                    $surchargeEnabled,
+                    $surchargeVatRate
+                );
             } catch (WoocommerceOnpay\OnPay\API\Exception\ApiException $exception) {
                 $subscriptionOrder->add_order_note(__('Authorizing new transaction failed.', 'wc-onpay'));
                 $newOrder->update_status('failed', __('Authorizing new transaction failed.', 'wc-onpay'));
@@ -936,6 +1039,15 @@ function init_onpay() {
             $newOrder->add_order_note(__('Transaction authorized in OnPay. Remember to capture amount.', 'wc-onpay'));
             $this->setOnpayId($newOrder, $onpayNumber);
             $newOrder->add_meta_data($this::WC_ONPAY_ID . '_test_mode', wc_onpay_query_helper::get_query_value('onpay_testmode'));
+
+            // Check if a fee is reported back
+            if (null !== $createdOnpayTransaction->fee) {
+                $itemFee = wc_onpay_surcharge_helper::getSurchargeItemFee($createdOnpayTransaction->fee, $newOrder, $customer);
+                // Add Fee item to the order and recalculate totals
+                $newOrder->add_item($itemFee);
+                $newOrder->calculate_totals(true);
+                $newOrder->add_order_note(__('Card surcharge fee from OnPay added to order', 'wc-onpay'));
+            }
 
             // Mark order as complete. This must be done as one of the last things, since it will trigger the woocommerce_order_status_completed hook.
             $newOrder->payment_complete($onpayNumber);
@@ -1012,7 +1124,7 @@ function init_onpay() {
             $transientNotices = get_transient(self::WC_ONPAY_SESSION_ADMIN_NOTICES . '_' . get_current_user_id());
             if ($transientNotices !== false) {
                 foreach($transientNotices as $notice) {
-                    echo $notice;
+                    $this->outputString($this->cleanOutput($notice));
                 }
                 delete_transient(self::WC_ONPAY_SESSION_ADMIN_NOTICES . '_' . get_current_user_id());
             }
@@ -1120,6 +1232,9 @@ function init_onpay() {
                 $this->update_option(self::SETTING_ONPAY_CARDLOGOS, null);
                 $this->update_option(self::SETTING_ONPAY_STATUS_AUTOCAPTURE, null);
                 $this->update_option(self::SETTING_ONPAY_REFUND_INTEGRATION, null);
+                $this->update_option(self::SETTING_ONPAY_SURCHARGE_ENABLE, null);
+                $this->update_option(self::SETTING_ONPAY_SURCHARGE_VAT_RATE, null);
+                $this->update_option(self::SETTING_ONPAY_SURCHARGE_VAT_OVERRIDE, null);
 
                 wp_redirect(wc_onpay_query_helper::generate_url(['page' => 'wc-settings','tab' => self::WC_ONPAY_ID]));
                 exit;
@@ -1164,6 +1279,23 @@ function init_onpay() {
                 $selectOptions[$option['id']] = $option['name'];
             }
             return $selectOptions;
+        }
+
+        /**
+         * Gets a list of available tax rates
+         */
+        private function get_tax_rate_options() {
+            $rates = [
+                'none' => __('No VAT rate', 'wc-onpay'),
+                'auto' => __('Automatic from cart', 'wc-onpay'),
+                'standard' => __( 'Standard rates', 'woocommerce' ),
+            ];
+
+            foreach (WC_Tax::get_tax_rate_classes() as $rate) {
+                $rates[$rate->slug] = $rate->name;
+            }
+
+            return $rates;
         }
 
         /**
@@ -1274,7 +1406,15 @@ function init_onpay() {
             die(wp_json_encode($response));
         }
 
-	private function getOnboardingHtml($authUrl) {
+        private function cleanOutput($string) {
+            return (string)ent2ncr(htmlentities($string));
+        }
+
+        private function outputString($string) {
+            echo $string;
+        }
+
+	    private function getOnboardingHtml($authUrl) {
             $html = '<div style="border-radius: .25rem; text-align: center; background-color: #ffffff; box-shadow: 0 15px 35px rgba(50,50,93,.1), 0 5px 15px rgba(0,0,0,.07); -webkit-box-shadow: 0 15px 35px rgba(50,50,93,.1), 0 5px 15px rgba(0,0,0,.07); padding: 1.25rem; max-width: 500px; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between;">';
             $html .= '<a href="' . $authUrl . '" style="background-color: #fb617f; color: #fff; border-color: #fb617f; font-weight: bold; padding: .75rem; font-size: 1rem; line-height: 1.5; border-radius: .25rem; text-decoration: none;">' . __('Log in with OnPay account', 'wc-onpay') . '</a>';
             $html .= '<hr style="border-top: 1px solid rgba(0,0,0,.1); width: 100%; margin: 20px 0 20px 0;">';

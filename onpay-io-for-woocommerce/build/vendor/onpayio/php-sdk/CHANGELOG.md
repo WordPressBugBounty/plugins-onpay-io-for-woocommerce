@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.34] - 2025-03-07
+- Add surcharge fields to payment create API calls
+
+## [1.0.33] - 2025-02-24
+- Raised timeout of curl client to 30 seconds
+
+## [1.0.32] - 2025-01-15
+- Integrated Oauth2 client fully into SDK
+
+## [1.0.31] - 2025-01-14
+- Added full test of Oauth2 in API client
+- Fix user agent being set incorrectly in get requests
+- Add support for surcharge
+
+## [1.0.30] - 2024-08-05
+- Allow a broader selection of characters in cartinfo account id
+- Added direction parameter to transaction and subscription lists
+- Added missing enum for Klarna
+
 ## [1.0.29] - 2024-03-04
 - Added Klarna method
 

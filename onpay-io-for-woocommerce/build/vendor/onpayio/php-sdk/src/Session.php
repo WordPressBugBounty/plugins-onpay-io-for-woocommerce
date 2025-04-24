@@ -2,7 +2,7 @@
 
 namespace WoocommerceOnpay\OnPay;
 
-use WoocommerceOnpay\fkooman\OAuth\Client\SessionInterface;
+use WoocommerceOnpay\OnPay\OAuth\Client\SessionInterface;
 class Session implements SessionInterface
 {
     protected $values;

@@ -29,12 +29,17 @@ class SubscriptionService
      * @param null $status
      * @param null $dateAfter
      * @param null $dateBefore
+     * @param string $direction
      * @return SubscriptionCollection
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function getSubscriptions($page = null, $pageSize = null, $orderBy = null, $query = null, $status = null, $dateAfter = null, $dateBefore = null)
+    public function getSubscriptions($page = null, $pageSize = null, $orderBy = null, $query = null, $status = null, $dateAfter = null, $dateBefore = null, $direction = 'DESC')
     {
-        $queryString = \http_build_query(['page' => $page, 'page_size' => $pageSize, 'order_by' => $orderBy, 'query' => $query, 'status' => $status, 'date_after' => $dateAfter, 'date_before' => $dateBefore]);
+        $direction = \strtoupper($direction);
+        if ($direction !== 'ASC') {
+            $direction = 'DESC';
+        }
+        $queryString = \http_build_query(['page' => $page, 'page_size' => $pageSize, 'order_by' => $orderBy, 'query' => $query, 'status' => $status, 'date_after' => $dateAfter, 'date_before' => $dateBefore, 'direction' => $direction]);
         $results = $this->api->get('subscription/?' . $queryString);
         $subscriptions = [];
         foreach ($results['data'] as $result) {
@@ -78,12 +83,14 @@ class SubscriptionService
      * @param $uuid
      * @param int $amount
      * @param string $orderId
+     * @param bool $surchargeEnabled
+     * @param int $surchargeVatRate
      * @return DetailedTransaction
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function createTransactionFromSubscription($uuid, $amount, $orderId)
+    public function createTransactionFromSubscription($uuid, $amount, $orderId, $surchargeEnabled = \false, $surchargeVatRate = 0)
     {
-        $json = ['data' => ['amount' => $amount, 'order_id' => $orderId]];
+        $json = ['data' => ['amount' => $amount, 'order_id' => $orderId, 'surcharge_enabled' => $surchargeEnabled, 'surcharge_vat_rate' => $surchargeVatRate]];
         $result = $this->api->post('subscription/' . $uuid . '/authorize', $json);
         $transaction = new DetailedTransaction($result['data']);
         $transaction->setLinks($result['links']);

@@ -2,9 +2,9 @@
 
 namespace WoocommerceOnpay\OnPay;
 
-use WoocommerceOnpay\fkooman\OAuth\Client\Http\CurlHttpClient;
-use WoocommerceOnpay\fkooman\OAuth\Client\Http\Request;
-use WoocommerceOnpay\fkooman\OAuth\Client\Http\Response;
+use WoocommerceOnpay\OnPay\OAuth\Client\Http\CurlHttpClient;
+use WoocommerceOnpay\OnPay\OAuth\Client\Http\Request;
+use WoocommerceOnpay\OnPay\OAuth\Client\Http\Response;
 class CurlHttpClientLogger extends CurlHttpClient
 {
     /**
