@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.44] - 2025-06-02
+- Add custom method description setting, that allows overwriting descriptions with custom texts.
+
 ## [1.0.43] - 2025-04-23
 - Properly sanitize outputted strings.
 - Added support for surcharge fee feature
