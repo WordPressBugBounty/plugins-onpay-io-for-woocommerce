@@ -23,7 +23,7 @@ abstract class PaymentMethodAbstract implements PaymentMethodInterface
         if (static::CURRENCIES[0] === CurrencyCodes::ALL_CURRENCY_CODES) {
             return \true;
         }
-        return \in_array($currency->getAlpha3(), static::CURRENCIES, \true);
+        return in_array($currency->getAlpha3(), static::CURRENCIES, \true);
     }
     /**
      * @return array

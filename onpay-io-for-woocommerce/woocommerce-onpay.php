@@ -30,7 +30,7 @@
 * Author URI: https://onpay.io/
 * Text Domain: wc-onpay
 * Domain Path: /languages
-* Version: 1.0.44
+* Version: 1.0.49
 **/
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -66,7 +66,7 @@ function init_onpay() {
     include_once __DIR__ . '/classes/gateway-klarna.php';
 
     class WC_OnPay extends WC_Payment_Gateway {
-        const PLUGIN_VERSION = '1.0.44';
+        const PLUGIN_VERSION = '1.0.49';
 
         const SETTING_ONPAY_GATEWAY_ID = 'gateway_id';
         const SETTING_ONPAY_SECRET = 'secret';
@@ -120,13 +120,15 @@ function init_onpay() {
          */
         public function __construct() {
             $this->id = $this::WC_ONPAY_ID;
-            $this->method_title = __('OnPay.io', 'wc-onpay');
-            $this->has_fields   = false;
-            $this->method_description = __('Receive payments with cards and more through OnPay.io', 'wc-onpay');
+            $this->has_fields = false;
+        }
 
-            $this->init_settings();
-
+        public function initPlugin() {
             load_plugin_textdomain( 'wc-onpay', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+            $this->init_settings();
+            
+            $this->method_title = __('OnPay.io', 'wc-onpay');
+            $this->method_description = __('Receive payments with cards and more through OnPay.io', 'wc-onpay');
         }
 
         /**
@@ -152,20 +154,22 @@ function init_onpay() {
          * Initialize hooks
          */
         public function init_hooks() {
+            add_action('init'. $this->id, [$this, 'initPlugin']);
             add_filter('woocommerce_settings_'. $this->id, [$this, 'admin_options']);
             add_action('woocommerce_settings_save_'. $this->id, [$this, 'process_admin_options']);
             add_action('woocommerce_api_'. $this->id . '_callback', [$this, 'callback']);
             add_action('woocommerce_before_checkout_form', [$this, 'returnMessage']);
             add_action('woocommerce_before_thankyou', [$this, 'returnMessage']);
+            add_action('template_redirect', [$this, 'handleCheckoutNotices']);
             add_action('woocommerce_scheduled_subscription_payment_onpay_card', [$this, 'subscriptionPayment'], 1, 2);
             add_action('woocommerce_order_status_completed', [$this, 'orderStatusCompleteEvent']);
             add_action('woocommerce_subscription_cancelled_onpay_card', [$this, 'subscriptionCancellation']);
             add_action('woocommerce_order_refunded', [$this, 'refundEvent'], 10, 2);
-            add_action('admin_init', [$this, 'gateway_toggle']);
             add_action('woocommerce_process_shop_order_meta', [$this, 'handle_order_meta_box']);
             add_action('add_meta_boxes', [$this, 'meta_boxes']);
             add_action('wp_enqueue_scripts', [$this, 'register_scripts']);
             add_action('admin_notices', [$this, 'showAdminNotices']);
+            add_action('woocommerce_update_option', [$this, 'updateGateway']);
         }
 
         public function register_scripts() {
@@ -350,32 +354,63 @@ function init_onpay() {
             return $order;
         }
 
-        public function returnMessage($orderId) {
-            $paymentWindow = new \OnPay\API\PaymentWindow();
-            $paymentWindow->setSecret($this->get_option($this::SETTING_ONPAY_SECRET));
-            
+        /**
+         * Handle checkout notices early in the request lifecycle for both classic and React checkout
+         */
+        public function handleCheckoutNotices() {
+            // Only run on frontend pages (not admin)
+            if (is_admin()) {
+                return;
+            }
+
+            // Check if we're on a relevant page (checkout, cart, or order-received)
+            if (is_checkout() || is_cart() || is_wc_endpoint_url('order-received') || is_account_page()) {
+                $this->processPaymentReturnNotices();
+            }
+        }
+
+        /**
+         * Process payment return notices - used by both classic and React checkout
+         */
+        private function processPaymentReturnNotices() {
             $key = wc_onpay_query_helper::get_query_value('order_key');
             if (null === $key) {
                 $key = wc_onpay_query_helper::get_query_value('key');
             }
+
+            // Get OnPay-related query parameters
             $onPayMethod = wc_onpay_query_helper::get_query_value('onpay_method');
-            $onPayCardType = wc_onpay_query_helper::get_query_value('onpay_cardtype');
-
-            $orderId = wc_get_order_id_by_order_key($key);
-            $order = wc_get_order($orderId);
-
-            // Extend the method title with card type if present and not already applied
-            if ('card' === $onPayMethod && null !== $onPayCardType) {
-                $this->applyCardTypeToOrder($order, $onPayCardType);
-                $order->save();
-            }
-            
             $isDeclined = wc_onpay_query_helper::get_query_value('declined_from_onpay');
-            if ($isDeclined === '1' && $order && !$order->is_paid()) {
-                // Order is not paid yet and user is returned through declined url from OnPay.
-                // Valid OnPay URL params are also present, which indicates that user did not simply quit payment, but an actual error was encountered.
-                $this->outputString('<div class="woocommerce-error">' . __('The payment failed. Please try again.', 'wc-onpay') . '</div>');
+            
+            // If we have a declined payment, show the notice regardless of other parameters
+            if ($isDeclined === '1') {
+                // Always show error for declined payments
+                wc_add_notice(__('The payment failed. Please try again.', 'wc-onpay'), 'error');
+                
+                // Try to update order if we have the necessary data
+                if (null !== $key) {
+                    $orderId = wc_get_order_id_by_order_key($key);
+                    $order = wc_get_order($orderId);
+
+                    if ($order) {
+                        // Extend the method title with card type if present and not already applied
+                        $onPayCardType = wc_onpay_query_helper::get_query_value('onpay_cardtype');
+                        if ('card' === $onPayMethod && null !== $onPayCardType) {
+                            $this->applyCardTypeToOrder($order, $onPayCardType);
+                            $order->save();
+                        }
+                    }
+                }
             }
+        }
+
+        public function returnMessage($orderId) {
+            // This method is kept for backward compatibility with classic checkout
+            // The actual notice processing is now handled by handleCheckoutNotices/processPaymentReturnNotices
+            // which works for both classic and React checkout
+            
+            // But as a fallback, also process notices here for classic checkout
+            $this->processPaymentReturnNotices();
         }
 
         /**
@@ -742,11 +777,14 @@ function init_onpay() {
         }
 
         /**
-         * Allows toggling of gateways from payment gateways overview
+         * Allows toggling of gateways from WooCommerce payment gateways overview
          */
-        public function gateway_toggle() {
+        public function updateGateway($option) {
             if (isset( $_POST['action'] ) && 'woocommerce_toggle_gateway_enabled' === sanitize_text_field(wp_unslash( $_POST['action']))) {
-                $gatewayId = isset( $_POST['gateway_id'] ) ? sanitize_text_field( wp_unslash( $_POST['gateway_id'] ) ) : false;
+                // Extract gateway id
+                preg_match('#\woocommerce_(.+)\_settings#s', sanitize_text_field($option['id']), $matches);
+                $gatewayId = $matches[1];
+                
                 $gatewaySettings = [
                     wc_onpay_gateway_anyday::WC_ONPAY_GATEWAY_ANYDAY_ID => self::SETTING_ONPAY_EXTRA_PAYMENTS_ANYDAY,
                     wc_onpay_gateway_card::WC_ONPAY_GATEWAY_CARD_ID => self::SETTING_ONPAY_EXTRA_PAYMENTS_CARD,
@@ -767,7 +805,7 @@ function init_onpay() {
                     } else {
                         $this->update_option($gatewaySettings[$gatewayId], 'no');
                     }
-                    die(wp_json_encode([
+                    wp_die(wp_json_encode([
                         'success' => true,
                         'data' => $enabled,
                     ]));
@@ -812,22 +850,26 @@ function init_onpay() {
                 $order = wc_get_order($order_id);
                 $transactionId = $this->getOnpayId($order);
                 if ($this->isOnPayMethod($order->get_payment_method()) && null !== $transactionId) {
-                    // Get the transaction from API
-                    $transaction = $this->get_onpay_client()->transaction()->getTransaction($transactionId);
-                    // Get refund data
-                    $refund = new WC_Order_Refund($refund_id);
-                    // Get amount as minor units
-                    $currencyHelper = new wc_onpay_currency_helper();
-                    $amount = $currencyHelper->majorToMinor($refund->data['amount'], $transaction->currencyCode, '.');
-                    $refundableAmount = $transaction->charged - $transaction->refunded;
-                    // Check if amount is lower than amount available for refund.
-                    if ($amount <= $refundableAmount) {
-                        $this->get_onpay_client()->transaction()->refundTransaction($transaction->uuid, $amount);
-                        $order->add_order_note( __( 'Amount automatically refunded on transaction in OnPay.', 'wc-onpay' ));
-                        $this->addAdminNotice(__( 'Amount refunded on transaction in OnPay.', 'wc-onpay' ), 'success');
-                    } else {
-                        $order->add_order_note( __( 'Unable to automatically refund on transaction in OnPay.', 'wc-onpay' ));
-                        $this->addAdminNotice(__( 'Unable to refund on transaction in OnPay.', 'wc-onpay' ), 'success');
+                    try {
+                        // Get the transaction from API
+                        $transaction = $this->get_onpay_client()->transaction()->getTransaction($transactionId);
+                        // Get refund data
+                        $refund = new WC_Order_Refund($refund_id);
+                        // Get amount as minor units
+                        $currencyHelper = new wc_onpay_currency_helper();
+                        $amount = $currencyHelper->majorToMinor($refund->data['amount'], $transaction->currencyCode, '.');
+                        $refundableAmount = $transaction->charged - $transaction->refunded;
+                        // Check if amount is lower than amount available for refund.
+                        if ($amount <= $refundableAmount) {
+                            $this->get_onpay_client()->transaction()->refundTransaction($transaction->uuid, $amount);
+                            $order->add_order_note( __( 'Amount automatically refunded on transaction in OnPay.', 'wc-onpay' ));
+                            $this->addAdminNotice(__( 'Amount refunded on transaction in OnPay.', 'wc-onpay' ), 'success');
+                        } else {
+                            $order->add_order_note( __( 'Unable to automatically refund on transaction in OnPay.', 'wc-onpay' ));
+                            $this->addAdminNotice(__( 'Unable to refund on transaction in OnPay.', 'wc-onpay' ), 'success');
+                        }
+                    } catch (\Exception $exception) { // Handle exceptions
+                        $this->onpayExceptionHandlerAdmin($exception);
                     }
                 }
             }
@@ -1020,10 +1062,11 @@ function init_onpay() {
             // Determine that we have an order and the required data for getting transaction is available.
             // We're not interested in handling on subscriptions here
             if ($order instanceof WC_Order && !$order instanceof WC_Subscription && $this->isOnPayMethod($order->get_payment_method()) && null !== $transactionId) {
-                // Get the transaction from API
-                $transaction = $this->get_onpay_client()->transaction()->getTransaction($transactionId);
-                $currencyHelper = new wc_onpay_currency_helper();
                 try {
+                    // Get the transaction from API
+                    $transaction = $this->get_onpay_client()->transaction()->getTransaction($transactionId);
+                    $currencyHelper = new wc_onpay_currency_helper();
+                    
                     if (null !== wc_onpay_query_helper::get_post_value('onpay_capture') && null !== wc_onpay_query_helper::get_post_value('onpay_capture_amount')) { // If transaction is requested captured.                            
                         $value = str_replace(',', '.', wc_onpay_query_helper::get_post_value('onpay_capture_amount'));
                         $amount = $currencyHelper->majorToMinor($value, $transaction->currencyCode, '.');
@@ -1043,8 +1086,8 @@ function init_onpay() {
                         $order->add_order_note( __( 'Transaction finished/cancelled in OnPay.', 'wc-onpay' ));
                         $this->addAdminNotice(__( 'Transaction finished/cancelled in OnPay.', 'wc-onpay' ), 'info');
                     }
-                } catch (OnPay\API\Exception\ApiException $exception) {
-                    $this->addAdminNotice(__('OnPay error: ', 'wc-onpay') . $exception->getMessage(), 'error');
+                } catch (\Exception $exception) {
+                    $this->onpayExceptionHandlerAdmin($exception);
                 }
             }
         }
@@ -1064,6 +1107,7 @@ function init_onpay() {
             $currencyHelper = new wc_onpay_currency_helper();
             $orderCurrency = $currencyHelper->fromAlpha3($newOrder->get_currency());
             $orderAmount = $currencyHelper->majorToMinor($newOrder->get_total(), $orderCurrency->numeric, '.');
+            
             $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($subscriptionId);
             
             // Fetch surcharge settings
@@ -1093,7 +1137,7 @@ function init_onpay() {
                     $surchargeEnabled,
                     $surchargeVatRate
                 );
-            } catch (WoocommerceOnpay\OnPay\API\Exception\ApiException $exception) {
+            } catch (OnPay\API\Exception\ApiException $exception) {
                 $subscriptionOrder->add_order_note(__('Authorizing new transaction failed.', 'wc-onpay'));
                 $newOrder->update_status('failed', __('Authorizing new transaction failed.', 'wc-onpay'));
                 return;
@@ -1139,13 +1183,19 @@ function init_onpay() {
                 return;
             }
 
-            // No need to do anything if no subscription is found by current Transaction ID in OnPay.
-            $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($subscriptionId);
+            try {
+                // No need to do anything if no subscription is found by current Transaction ID in OnPay.
+                $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($subscriptionId);
 
-            if ($onpaySubscription->status === 'cancelled') {
-                return;
+                if ($onpaySubscription->status === 'cancelled') {
+                    return;
+                }
+
+                $cancelSubscription = $this->get_onpay_client()->subscription()->cancelSubscription($onpaySubscription->uuid);
+            } catch (\Exception $exception) {
+                $this->onpayExceptionHandlerAdmin($exception);
             }
-            return $this->get_onpay_client()->subscription()->cancelSubscription($onpaySubscription->uuid);
+            return $cancelSubscription;
         }
 
         /**
@@ -1533,6 +1583,22 @@ function init_onpay() {
         public static function plugin_abspath() {
             return trailingslashit( plugin_dir_path( __FILE__ ) );
         }
+
+        /**
+         * Handle exceptions when connecting to OnPay, in admin.
+         * Adds notice with appropiate
+         */
+        public function onpayExceptionHandlerAdmin($exception) {
+            try {
+                throw $exception;
+            } catch (OnPay\API\Exception\ConnectionException $e) { // No connection to OnPay API
+                $this->addAdminNotice(__('No connection to OnPay', 'wc-onpay'));
+            } catch (OnPay\API\Exception\TokenException $e) { // Something's wrong with the token
+                $this->addAdminNotice(__('Invalid OnPay token, please login on settings page', 'wc-onpay' ));
+            } catch (OnPay\API\Exception\ApiException $e) { // Api action failed
+                $this->addAdminNotice(__('OnPay error: ', 'wc-onpay') . $exception->getMessage(), 'error');
+            }
+        }
     }
 
     // Add OnPay as payment method to WooCommerce
@@ -1596,7 +1662,7 @@ function init_onpay() {
     // Add tab in woocommerce settings for OnPay
     add_filter('woocommerce_settings_tabs_array', 'add_settings_tab', 50);
     function add_settings_tab( $settings_tabs ) {
-        $settings_tabs['wc_onpay'] = __( 'OnPay.io', 'wc_onpay' );
+        $settings_tabs['wc_onpay'] = __( 'OnPay.io', 'wc-onpay' );
         return $settings_tabs;
     }
 

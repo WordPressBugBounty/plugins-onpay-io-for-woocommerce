@@ -21,10 +21,10 @@ final class ISO4217
      *
      * @return array{name: string, alpha3: string, numeric: string, exp: int, country: string|string[]}
      */
-    public function getByCode(string $code) : array
+    public function getByCode(string $code): array
     {
         foreach ($this->currencies as $currency) {
-            if (0 === \strcasecmp($code, $currency['alpha3']) || 0 === \strcasecmp($code, $currency['numeric'])) {
+            if (0 === strcasecmp($code, $currency['alpha3']) || 0 === strcasecmp($code, $currency['numeric'])) {
                 return $currency;
             }
         }
@@ -39,9 +39,9 @@ final class ISO4217
      *
      * @return array{name: string, alpha3: string, numeric: string, exp: int, country: string|string[]}
      */
-    public function getByAlpha3(string $alpha3) : array
+    public function getByAlpha3(string $alpha3): array
     {
-        if (0 === \preg_match('/^[a-zA-Z]{3}$/', $alpha3)) {
+        if (0 === preg_match('/^[a-zA-Z]{3}$/', $alpha3)) {
             throw new \DomainException('Not a valid alpha3: ' . $alpha3);
         }
         return $this->getByCode($alpha3);
@@ -55,9 +55,9 @@ final class ISO4217
      *
      * @return array{name: string, alpha3: string, numeric: string, exp: int, country: string|string[]}
      */
-    public function getByNumeric(string $numeric) : array
+    public function getByNumeric(string $numeric): array
     {
-        if (0 === \preg_match('/^[0-9]{3}$/', $numeric)) {
+        if (0 === preg_match('/^[0-9]{3}$/', $numeric)) {
             throw new \DomainException('Not a valid numeric: ' . $numeric);
         }
         return $this->getByCode($numeric);
@@ -69,7 +69,7 @@ final class ISO4217
      *
      * @return array{name: string, alpha3: string, numeric: string, exp: int, country: string|string[]}[]
      */
-    public function getAll() : array
+    public function getAll(): array
     {
         return $this->currencies;
     }

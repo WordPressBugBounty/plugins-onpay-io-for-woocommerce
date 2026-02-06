@@ -20,7 +20,7 @@ interface ISO3166DataProvider
      *
      * @return array<string, mixed>
      */
-    public function name(string $name) : array;
+    public function name(string $name): array;
     /**
      * Lookup ISO3166-1 data by alpha2 identifier.
      *
@@ -31,7 +31,7 @@ interface ISO3166DataProvider
      *
      * @return array<string, mixed>
      */
-    public function alpha2(string $alpha2) : array;
+    public function alpha2(string $alpha2): array;
     /**
      * Lookup ISO3166-1 data by alpha3 identifier.
      *
@@ -42,7 +42,7 @@ interface ISO3166DataProvider
      *
      * @return array<string, mixed>
      */
-    public function alpha3(string $alpha3) : array;
+    public function alpha3(string $alpha3): array;
     /**
      * Lookup ISO3166-1 data by numeric identifier (numerical string, that is).
      *
@@ -53,5 +53,5 @@ interface ISO3166DataProvider
      *
      * @return array<string, mixed>
      */
-    public function numeric(string $numeric) : array;
+    public function numeric(string $numeric): array;
 }

@@ -229,6 +229,6 @@ class OAuthClient
      */
     private static function getAuthorizationHeader($authUser, $authPass)
     {
-        return ['Accept' => 'application/json', 'Authorization' => \sprintf('Basic %s', \base64_encode(\sprintf('%s:%s', $authUser, $authPass)))];
+        return ['Accept' => 'application/json', 'Authorization' => \sprintf('Basic %s', base64_encode(\sprintf('%s:%s', $authUser, $authPass)))];
     }
 }

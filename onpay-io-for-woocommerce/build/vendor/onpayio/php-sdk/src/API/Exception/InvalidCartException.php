@@ -13,6 +13,6 @@ class InvalidCartException extends \Exception
     public function __construct(array $errors)
     {
         $this->errors = $errors;
-        parent::__construct(\count($errors) . ' validation errors: ' . \implode(', ', $errors));
+        parent::__construct(count($errors) . ' validation errors: ' . implode(', ', $errors));
     }
 }

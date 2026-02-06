@@ -17,10 +17,10 @@ final class Guards
      *
      * @throws \League\ISO3166\Exception\DomainException if input does not look like an alpha2 key
      */
-    public static function guardAgainstInvalidAlpha2(string $alpha2) : void
+    public static function guardAgainstInvalidAlpha2(string $alpha2): void
     {
-        if (1 !== \preg_match('/^[a-zA-Z]{2}$/', $alpha2)) {
-            throw new DomainException(\sprintf('Not a valid alpha2 key: %s', $alpha2));
+        if (1 !== preg_match('/^[a-zA-Z]{2}$/', $alpha2)) {
+            throw new DomainException(sprintf('Not a valid alpha2 key: %s', $alpha2));
         }
     }
     /**
@@ -28,10 +28,10 @@ final class Guards
      *
      * @throws \League\ISO3166\Exception\DomainException if input does not look like an alpha3 key
      */
-    public static function guardAgainstInvalidAlpha3(string $alpha3) : void
+    public static function guardAgainstInvalidAlpha3(string $alpha3): void
     {
-        if (1 !== \preg_match('/^[a-zA-Z]{3}$/', $alpha3)) {
-            throw new DomainException(\sprintf('Not a valid alpha3 key: %s', $alpha3));
+        if (1 !== preg_match('/^[a-zA-Z]{3}$/', $alpha3)) {
+            throw new DomainException(sprintf('Not a valid alpha3 key: %s', $alpha3));
         }
     }
     /**
@@ -39,10 +39,10 @@ final class Guards
      *
      * @throws \League\ISO3166\Exception\DomainException if input does not look like a numeric key
      */
-    public static function guardAgainstInvalidNumeric(string $numeric) : void
+    public static function guardAgainstInvalidNumeric(string $numeric): void
     {
-        if (1 !== \preg_match('/^\\d{3}$/', $numeric)) {
-            throw new DomainException(\sprintf('Not a valid numeric key: %s', $numeric));
+        if (1 !== preg_match('/^\d{3}$/', $numeric)) {
+            throw new DomainException(sprintf('Not a valid numeric key: %s', $numeric));
         }
     }
 }

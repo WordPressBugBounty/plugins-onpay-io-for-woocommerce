@@ -153,7 +153,7 @@ class AccessToken
      */
     public function isExpired(DateTime $dateTime)
     {
-        if (null === ($expiresIn = $this->getExpiresIn())) {
+        if (null === $expiresIn = $this->getExpiresIn()) {
             // if no expiry was indicated, assume it is valid
             return \false;
         }
@@ -214,7 +214,7 @@ class AccessToken
     {
         // access-token = 1*VSCHAR
         // VSCHAR       = %x20-7E
-        if (1 !== \preg_match('/^[\\x20-\\x7E]+$/', $accessToken)) {
+        if (1 !== \preg_match('/^[\x20-\x7E]+$/', $accessToken)) {
             throw new AccessTokenException('invalid "access_token"');
         }
         $this->accessToken = $accessToken;
@@ -258,7 +258,7 @@ class AccessToken
         if (null !== $refreshToken) {
             // refresh-token = 1*VSCHAR
             // VSCHAR        = %x20-7E
-            if (1 !== \preg_match('/^[\\x20-\\x7E]+$/', $refreshToken)) {
+            if (1 !== \preg_match('/^[\x20-\x7E]+$/', $refreshToken)) {
                 throw new AccessTokenException('invalid "refresh_token"');
             }
         }
@@ -276,7 +276,7 @@ class AccessToken
             // scope-token = 1*NQCHAR
             // NQCHAR      = %x21 / %x23-5B / %x5D-7E
             foreach (\explode(' ', $scope) as $scopeToken) {
-                if (1 !== \preg_match('/^[\\x21\\x23-\\x5B\\x5D-\\x7E]+$/', $scopeToken)) {
+                if (1 !== \preg_match('/^[\x21\x23-\x5B\x5D-\x7E]+$/', $scopeToken)) {
                     throw new AccessTokenException('invalid "scope"');
                 }
             }

@@ -88,13 +88,13 @@ class OnPayAPI
         $this->tokenStorage = $tokenStorage;
         $defaultOptions = ['base_uri' => 'https://api.onpay.io', 'base_authorize_uri' => 'https://manage.onpay.io'];
         $requiredOptions = $this->getRequiredOptions($tokenStorage);
-        $missing = \array_diff_key(\array_flip($requiredOptions), $options);
+        $missing = array_diff_key(array_flip($requiredOptions), $options);
         if (!empty($missing)) {
-            throw new \InvalidArgumentException('Required options not defined: ' . \implode(', ', \array_keys($missing)));
+            throw new \InvalidArgumentException('Required options not defined: ' . implode(', ', array_keys($missing)));
         }
-        $this->options = \array_merge($defaultOptions, $options);
+        $this->options = array_merge($defaultOptions, $options);
         if (isset($this->options['gateway_id'])) {
-            $gatewayId = \intval($this->options['gateway_id']);
+            $gatewayId = intval($this->options['gateway_id']);
             if ($gatewayId === 0) {
                 throw new \InvalidArgumentException('gateway_id must be numeric value');
             }
@@ -103,13 +103,13 @@ class OnPayAPI
             $authUrl = $this->options['base_authorize_uri'] . '/oauth2/authorize';
         }
         // Set redirect_uri to an empty value if none is sent
-        if (!\array_key_exists('redirect_uri', $this->options)) {
+        if (!array_key_exists('redirect_uri', $this->options)) {
             $this->options['redirect_uri'] = '';
         }
         $this->tokenStorage = new InternalTokenStorage($tokenStorage, $authUrl, $options['client_id'], $this->scope);
         $this->oauth2Provider = new Provider($this->options['client_id'], '', $authUrl, $this->options['base_uri'] . '/oauth2/access_token');
         $this->httpClient = new CurlHttpClientLogger([]);
-        if (\array_key_exists('platform', $this->options)) {
+        if (array_key_exists('platform', $this->options)) {
             $this->platform = $this->options['platform'];
         } else {
             $this->platform = 'php-sdk' . '/' . self::SDK_VERSION;
@@ -219,7 +219,7 @@ class OnPayAPI
     public function post($url, $postBody = null)
     {
         try {
-            $request = new Request('POST', $this->options['base_uri'] . '/v1/' . $url, ['Content-Type' => 'application/json', 'User-Agent' => $this->platform], \json_encode($postBody, \JSON_UNESCAPED_SLASHES));
+            $request = new Request('POST', $this->options['base_uri'] . '/v1/' . $url, ['Content-Type' => 'application/json', 'User-Agent' => $this->platform], json_encode($postBody, \JSON_UNESCAPED_SLASHES));
             $response = $this->getClient()->send($this->oauth2Provider, $this->userId, $this->scope, $request);
             $this->setLastHttpRequest($this->httpClient->getLastRequest());
             $this->setLastHttpResponse($this->httpClient->getLastResponse());
@@ -256,15 +256,15 @@ class OnPayAPI
             throw new TokenException('Invalid response. Possible invalid token.');
         }
         if ($response->isOkay()) {
-            return \json_decode($response->getBody(), \true);
+            return json_decode($response->getBody(), \true);
         }
         $message = '';
         if ('' !== $response->getBody() && null !== $response->getBody() && $response->getHeader('content-type') === 'application/json') {
-            $body = \json_decode($response->getBody(), \true);
-            if (\json_last_error() !== \JSON_ERROR_NONE) {
-                throw new ApiException('Failed to decode JSON body-response: ' . \json_last_error_msg(), $response->getStatusCode());
+            $body = json_decode($response->getBody(), \true);
+            if (json_last_error() !== \JSON_ERROR_NONE) {
+                throw new ApiException('Failed to decode JSON body-response: ' . json_last_error_msg(), $response->getStatusCode());
             }
-            if (\array_key_exists('errors', $body)) {
+            if (array_key_exists('errors', $body)) {
                 $message = $body['errors'][0]['message'];
             }
         }

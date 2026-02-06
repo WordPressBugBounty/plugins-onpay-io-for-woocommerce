@@ -27,7 +27,7 @@ class TransactionService
      */
     public function getTransaction($identifier)
     {
-        $result = $this->api->get('transaction/' . \urlencode($identifier));
+        $result = $this->api->get('transaction/' . urlencode($identifier));
         $detailedTransaction = new DetailedTransaction($result['data']);
         $detailedTransaction->setLinks($result['links']);
         return $detailedTransaction;
@@ -46,11 +46,11 @@ class TransactionService
      */
     public function getTransactions($page = null, $pageSize = null, $orderBy = null, $query = null, $status = null, $dateAfter = null, $dateBefore = null, $direction = 'DESC')
     {
-        $direction = \strtoupper($direction);
+        $direction = strtoupper($direction);
         if ($direction !== 'ASC') {
             $direction = 'DESC';
         }
-        $queryString = \http_build_query(['page' => $page, 'page_size' => $pageSize, 'order_by' => $orderBy, 'query' => $query, 'status' => $status, 'date_after' => $dateAfter, 'date_before' => $dateBefore, 'direction' => $direction]);
+        $queryString = http_build_query(['page' => $page, 'page_size' => $pageSize, 'order_by' => $orderBy, 'query' => $query, 'status' => $status, 'date_after' => $dateAfter, 'date_before' => $dateBefore, 'direction' => $direction]);
         $results = $this->api->get('transaction/?' . $queryString);
         $transactions = [];
         foreach ($results['data'] as $result) {
@@ -85,16 +85,12 @@ class TransactionService
         if (null !== $amount && null !== $postActionChargeAmount) {
             // Both amount parameters not allowed at the same time
             throw new ApiException('$amount and $postActionChargeAmount are mutually exclusive and can not both be used together');
-        } else {
-            if (null !== $amount) {
-                // Amount parameter supplied, add to json body
-                $jsonBody = ['data' => ['amount' => (int) $amount]];
-            } else {
-                if (null !== $postActionChargeAmount) {
-                    // PostActionCaptureAmount parameter supplied, add to json body
-                    $jsonBody = ['data' => ['postActionChargeAmount' => (int) $postActionChargeAmount]];
-                }
-            }
+        } else if (null !== $amount) {
+            // Amount parameter supplied, add to json body
+            $jsonBody = ['data' => ['amount' => (int) $amount]];
+        } else if (null !== $postActionChargeAmount) {
+            // PostActionCaptureAmount parameter supplied, add to json body
+            $jsonBody = ['data' => ['postActionChargeAmount' => (int) $postActionChargeAmount]];
         }
         $result = $this->api->post('transaction/' . $transactionNumber . '/capture', $jsonBody);
         $transaction = new DetailedTransaction($result['data']);
@@ -135,16 +131,12 @@ class TransactionService
         if (null !== $amount && null !== $postActionRefundAmount) {
             // Both amount parameters not allowed at the same time
             throw new ApiException('$amount and $postActionRefundAmount are mutually exclusive and can not both be used together');
-        } else {
-            if (null !== $amount) {
-                // Amount parameter supplied, add to json body
-                $jsonBody = ['data' => ['amount' => (int) $amount]];
-            } else {
-                if (null !== $postActionRefundAmount) {
-                    // PostActionRefundAmount parameter supplied, add to json body
-                    $jsonBody = ['data' => ['postActionRefundAmount' => (int) $postActionRefundAmount]];
-                }
-            }
+        } else if (null !== $amount) {
+            // Amount parameter supplied, add to json body
+            $jsonBody = ['data' => ['amount' => (int) $amount]];
+        } else if (null !== $postActionRefundAmount) {
+            // PostActionRefundAmount parameter supplied, add to json body
+            $jsonBody = ['data' => ['postActionRefundAmount' => (int) $postActionRefundAmount]];
         }
         $result = $this->api->post('transaction/' . $transactionNumber . '/refund', $jsonBody);
         $transaction = new DetailedTransaction($result['data']);

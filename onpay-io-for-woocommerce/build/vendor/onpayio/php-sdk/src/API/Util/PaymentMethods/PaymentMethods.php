@@ -55,7 +55,7 @@ class PaymentMethods
     {
         $currencies = [];
         foreach ($this->paymentMethods as $paymentMethod) {
-            if (\strtolower($paymentMethod->getName()) === \strtolower($method)) {
+            if (strtolower($paymentMethod->getName()) === strtolower($method)) {
                 $currencies = $paymentMethod->getCurrencies();
                 break;
             }

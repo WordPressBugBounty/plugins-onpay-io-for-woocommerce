@@ -9,7 +9,7 @@ use WoocommerceOnpay\PHPUnit\Framework\TestCase;
 class OnPayApiTest extends TestCase
 {
     /** @throws Exception */
-    public function testInitializeThrowsOnMissingRequiredParameterClientId() : void
+    public function testInitializeThrowsOnMissingRequiredParameterClientId(): void
     {
         $tokenStorage = $this->createMock(TokenStorageInterface::class);
         $tokenStorage->method('getToken')->willReturn('test_token');
@@ -18,7 +18,7 @@ class OnPayApiTest extends TestCase
         new OnPayAPI($tokenStorage, ['redirect_uri' => 'test_uri']);
     }
     /** @throws Exception */
-    public function testInitializeThrowsOnMissingRequiredParameterRedirectUri() : void
+    public function testInitializeThrowsOnMissingRequiredParameterRedirectUri(): void
     {
         $tokenStorage = $this->createMock(TokenStorageInterface::class);
         $tokenStorage->method('getToken')->willReturn('test_token');
@@ -27,7 +27,7 @@ class OnPayApiTest extends TestCase
         new OnPayAPI($tokenStorage, ['client_id' => 'test_id']);
     }
     /** @throws Exception */
-    public function testInitializeApi() : void
+    public function testInitializeApi(): void
     {
         $tokenStorage = $this->createMock(TokenStorageInterface::class);
         $tokenStorage->method('getToken')->willReturn('test_token');

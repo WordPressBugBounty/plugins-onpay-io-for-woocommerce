@@ -31,7 +31,7 @@ class ComposerStaticInite6f6d751d16251ed0598659f3b8f8de2
     );
 
     public static $classMap = array (
-        'WoocommerceOnpay\\Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
+        'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'WoocommerceOnpay\\Alcohol\\ISO4217' => __DIR__ . '/..' . '/alcohol/iso4217/ISO4217.php',
         'WoocommerceOnpay\\Alcohol\\ISO4217Test' => __DIR__ . '/..' . '/alcohol/iso4217/ISO4217Test.php',
         'WoocommerceOnpay\\League\\ISO3166\\Exception\\DomainException' => __DIR__ . '/..' . '/league/iso3166/src/Exception/DomainException.php',

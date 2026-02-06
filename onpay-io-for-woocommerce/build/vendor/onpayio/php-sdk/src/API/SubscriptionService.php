@@ -35,11 +35,11 @@ class SubscriptionService
      */
     public function getSubscriptions($page = null, $pageSize = null, $orderBy = null, $query = null, $status = null, $dateAfter = null, $dateBefore = null, $direction = 'DESC')
     {
-        $direction = \strtoupper($direction);
+        $direction = strtoupper($direction);
         if ($direction !== 'ASC') {
             $direction = 'DESC';
         }
-        $queryString = \http_build_query(['page' => $page, 'page_size' => $pageSize, 'order_by' => $orderBy, 'query' => $query, 'status' => $status, 'date_after' => $dateAfter, 'date_before' => $dateBefore, 'direction' => $direction]);
+        $queryString = http_build_query(['page' => $page, 'page_size' => $pageSize, 'order_by' => $orderBy, 'query' => $query, 'status' => $status, 'date_after' => $dateAfter, 'date_before' => $dateBefore, 'direction' => $direction]);
         $results = $this->api->get('subscription/?' . $queryString);
         $subscriptions = [];
         foreach ($results['data'] as $result) {

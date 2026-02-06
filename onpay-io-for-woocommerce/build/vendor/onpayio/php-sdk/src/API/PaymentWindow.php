@@ -355,8 +355,8 @@ class PaymentWindow
     public function generateSecret()
     {
         $fields = $this->getAvailableFieldsWithPrefix();
-        $queryString = \strtolower(\http_build_query($fields));
-        $hmac = \hash_hmac('sha1', $queryString, $this->secret);
+        $queryString = strtolower(http_build_query($fields));
+        $hmac = hash_hmac('sha1', $queryString, $this->secret);
         return $hmac;
     }
     /**
@@ -387,30 +387,30 @@ class PaymentWindow
         $fields = [];
         if (isset($this->info)) {
             if ($withPrefix) {
-                $fields = \array_merge($fields, $this->info->getFields());
+                $fields = array_merge($fields, $this->info->getFields());
             } else {
-                $fields = \array_merge($fields, $this->info->getFieldsWithoutPrefix());
+                $fields = array_merge($fields, $this->info->getFieldsWithoutPrefix());
             }
         }
         if (isset($this->cart)) {
             $this->cart->throwOnInvalid($this->getAmount());
-            $fields = \array_merge($fields, $this->cart->getFields());
+            $fields = array_merge($fields, $this->cart->getFields());
         }
         foreach ($this->availableFields as $field) {
-            if (\property_exists($this, $field) && null !== $this->{$field}) {
+            if (property_exists($this, $field) && null !== $this->{$field}) {
                 $key = '';
                 if ($withPrefix) {
                     $key = 'onpay_';
                 }
-                if (0 === \strpos($field, '_')) {
-                    $key .= \strtolower(\substr($field, 1));
+                if (0 === strpos($field, '_')) {
+                    $key .= strtolower(substr($field, 1));
                 } else {
-                    $key .= \strtolower($field);
+                    $key .= strtolower($field);
                 }
                 $fields[$key] = $this->{$field};
             }
         }
-        \ksort($fields);
+        ksort($fields);
         return $fields;
     }
     /**
@@ -433,7 +433,7 @@ class PaymentWindow
             return \false;
         }
         foreach ($this->requiredFields as $field) {
-            if (\property_exists($this, $field) && null === $this->{$field}) {
+            if (property_exists($this, $field) && null === $this->{$field}) {
                 return \false;
             }
         }
@@ -456,7 +456,7 @@ class PaymentWindow
     {
         $validFields = [];
         foreach ($fields as $key => $value) {
-            if (\strpos($key, 'onpay_') !== \false) {
+            if (strpos($key, 'onpay_') !== \false) {
                 $validFields[$key] = $value;
             }
         }
@@ -465,9 +465,9 @@ class PaymentWindow
         }
         $verify = $validFields['onpay_hmac_sha1'];
         unset($validFields['onpay_hmac_sha1']);
-        \ksort($validFields);
-        $queryString = \strtolower(\http_build_query($validFields));
-        $hmac = \hash_hmac('sha1', $queryString, $this->secret);
+        ksort($validFields);
+        $queryString = strtolower(http_build_query($validFields));
+        $hmac = hash_hmac('sha1', $queryString, $this->secret);
         if ($verify === $hmac) {
             return \true;
         }

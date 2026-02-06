@@ -2,9 +2,9 @@
 Contributors: onpayio
 Tags: onpay, gateway, payment, payment gateway, woocommerce, psp
 Requires at least: 5.8
-Tested up to: 6.8.1
+Tested up to: 6.8.3
 Requires PHP: 7.4
-Stable tag: 1.0.44
+Stable tag: 1.0.49
 License: MIT
 License URI: https://mit-license.org/
 
@@ -28,11 +28,29 @@ Don't  have an OnPay account yet? Order one through <a href="https://dandomain.d
 5. You're ready to go.
 
 == Dependencies ==
-1. PHP: >= 7.2
-2. Wordpress >= 5.8
-2. WooCommerce >= 6.5
+1. PHP: >= 7.4
+2. Wordpress >= 6.7
+2. WooCommerce >= 8.2
 
 == Changelog ==
+= [1.0.49] =
+Removed sanitizeFieldValue from getDescriptionString because of æøå showing as html entities
+
+= [1.0.48] =
+Fixed uncaught exception when getting non-existing transaction in order meta box
+Fixed enabling of gateways from WC list properly using correct hook
+Added SECURITY.md
+Improved error handling in admin, on OnPay connections
+
+= [1.0.47] =
+Set key used to grab custom name, to protected instead of private
+
+= [1.0.46] =
+Add handling for checkout notices and improve payment failure messaging
+
+= [1.0.45] =
+Confirmed WooCommerce 10 support
+Fixed minor deprecation warnings
 
 = [1.0.44] =
 Add custom method description setting, that allows overwriting descriptions with custom texts.

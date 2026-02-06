@@ -36,14 +36,14 @@ final class ISO3166 implements \Countable, \IteratorAggregate, ISO3166DataProvid
     /**
      * @return array{name: string, alpha2: string, alpha3: string, numeric: numeric-string, currency: string[]}
      */
-    public function name(string $name) : array
+    public function name(string $name): array
     {
         return $this->lookup(self::KEY_NAME, $name);
     }
     /**
      * @return array{name: string, alpha2: string, alpha3: string, numeric: numeric-string, currency: string[]}
      */
-    public function alpha2(string $alpha2) : array
+    public function alpha2(string $alpha2): array
     {
         Guards::guardAgainstInvalidAlpha2($alpha2);
         return $this->lookup(self::KEY_ALPHA2, $alpha2);
@@ -51,7 +51,7 @@ final class ISO3166 implements \Countable, \IteratorAggregate, ISO3166DataProvid
     /**
      * @return array{name: string, alpha2: string, alpha3: string, numeric: numeric-string, currency: string[]}
      */
-    public function alpha3(string $alpha3) : array
+    public function alpha3(string $alpha3): array
     {
         Guards::guardAgainstInvalidAlpha3($alpha3);
         return $this->lookup(self::KEY_ALPHA3, $alpha3);
@@ -59,7 +59,7 @@ final class ISO3166 implements \Countable, \IteratorAggregate, ISO3166DataProvid
     /**
      * @return array{name: string, alpha2: string, alpha3: string, numeric: numeric-string, currency: string[]}
      */
-    public function numeric(string $numeric) : array
+    public function numeric(string $numeric): array
     {
         Guards::guardAgainstInvalidNumeric($numeric);
         return $this->lookup(self::KEY_NUMERIC, $numeric);
@@ -67,21 +67,21 @@ final class ISO3166 implements \Countable, \IteratorAggregate, ISO3166DataProvid
     /**
      * @return array{name: string, alpha2: string, alpha3: string, numeric: numeric-string, currency: string[]}
      */
-    public function exactName(string $name) : array
+    public function exactName(string $name): array
     {
-        $value = \mb_strtolower($name);
+        $value = mb_strtolower($name);
         foreach ($this->countries as $country) {
-            $comparison = \mb_strtolower($country[self::KEY_NAME]);
+            $comparison = mb_strtolower($country[self::KEY_NAME]);
             if ($value === $comparison) {
                 return $country;
             }
         }
-        throw new OutOfBoundsException(\sprintf('No "%s" key found matching: %s', self::KEY_NAME, $value));
+        throw new OutOfBoundsException(sprintf('No "%s" key found matching: %s', self::KEY_NAME, $value));
     }
     /**
      * @return array<array{name: string, alpha2: string, alpha3: string, numeric: numeric-string, currency: string[]}>
      */
-    public function all() : array
+    public function all(): array
     {
         return $this->countries;
     }
@@ -92,13 +92,13 @@ final class ISO3166 implements \Countable, \IteratorAggregate, ISO3166DataProvid
      *
      * @return \Generator<string, array{name: string, alpha2: string, alpha3: string, numeric: numeric-string, currency: string[]}>
      */
-    public function iterator(string $key = self::KEY_ALPHA2) : \Generator
+    public function iterator(string $key = self::KEY_ALPHA2): \Generator
     {
-        if (!\in_array($key, $this->keys, \true)) {
-            throw new DomainException(\sprintf('Invalid value for $key, got "%s", expected one of: %s', $key, \implode(', ', $this->keys)));
+        if (!in_array($key, $this->keys, \true)) {
+            throw new DomainException(sprintf('Invalid value for $key, got "%s", expected one of: %s', $key, implode(', ', $this->keys)));
         }
         foreach ($this->countries as $country) {
-            (yield $country[$key] => $country);
+            yield $country[$key] => $country;
         }
     }
     /**
@@ -106,9 +106,9 @@ final class ISO3166 implements \Countable, \IteratorAggregate, ISO3166DataProvid
      *
      * @internal
      */
-    public function count() : int
+    public function count(): int
     {
-        return \count($this->countries);
+        return count($this->countries);
     }
     /**
      * @return \Generator<array<string, string|array<string>>>
@@ -117,10 +117,10 @@ final class ISO3166 implements \Countable, \IteratorAggregate, ISO3166DataProvid
      *
      * @internal
      */
-    public function getIterator() : \Generator
+    public function getIterator(): \Generator
     {
         foreach ($this->countries as $country) {
-            (yield $country);
+            yield $country;
         }
     }
     /**
@@ -134,16 +134,16 @@ final class ISO3166 implements \Countable, \IteratorAggregate, ISO3166DataProvid
      *
      * @return array{name: string, alpha2: string, alpha3: string, numeric: numeric-string, currency: string[]}
      */
-    private function lookup(string $key, string $value) : array
+    private function lookup(string $key, string $value): array
     {
-        $value = \mb_strtolower($value);
+        $value = mb_strtolower($value);
         foreach ($this->countries as $country) {
-            $comparison = \mb_strtolower($country[$key]);
-            if ($value === $comparison || $value === \mb_substr($comparison, 0, \mb_strlen($value))) {
+            $comparison = mb_strtolower($country[$key]);
+            if ($value === $comparison || $value === mb_substr($comparison, 0, mb_strlen($value))) {
                 return $country;
             }
         }
-        throw new OutOfBoundsException(\sprintf('No "%s" key found matching: %s', $key, $value));
+        throw new OutOfBoundsException(sprintf('No "%s" key found matching: %s', $key, $value));
     }
     /**
      * Default dataset.

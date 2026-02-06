@@ -32,10 +32,10 @@ class Cart
     public function setShipping($price, $tax, $discount = null)
     {
         $this->shipping = new CartShipping();
-        $this->shipping->price = \intval($price);
-        $this->shipping->tax = \intval($tax);
+        $this->shipping->price = intval($price);
+        $this->shipping->tax = intval($tax);
         if (null !== $discount) {
-            $this->shipping->discount = \intval($discount);
+            $this->shipping->discount = intval($discount);
         }
     }
     /**
@@ -48,8 +48,8 @@ class Cart
     public function setHandling($price, $tax)
     {
         $this->handling = new CartHandling();
-        $this->handling->price = \intval($price);
-        $this->handling->tax = \intval($tax);
+        $this->handling->price = intval($price);
+        $this->handling->tax = intval($tax);
     }
     /**
      * @param int $amount Amount in minor units
@@ -57,7 +57,7 @@ class Cart
      */
     public function setDiscount($amount)
     {
-        $this->discount = \intval($amount);
+        $this->discount = intval($amount);
     }
     public function addItem(CartItem $cartItem)
     {
@@ -96,7 +96,7 @@ class Cart
      */
     public function getItems()
     {
-        if (\count($this->items) > 20) {
+        if (count($this->items) > 20) {
             // We will collapse the last one in this case
             $output = [];
             $i = 0;
@@ -155,7 +155,7 @@ class Cart
     public function throwOnInvalid($amount)
     {
         $errors = [];
-        $amount = \intval($amount);
+        $amount = intval($amount);
         if ($amount < 0) {
             $errors[] = 'Amount cannot be negative';
         }
@@ -227,7 +227,7 @@ class Cart
         if ($amount !== $cartTotal) {
             $errors[] = 'Cart total does not match amount for payment, cart total was calculated to: ' . $cartTotal . ', amount provided is: ' . $amount;
         }
-        if (\count($errors) > 0) {
+        if (count($errors) > 0) {
             throw new InvalidCartException($errors);
         }
     }

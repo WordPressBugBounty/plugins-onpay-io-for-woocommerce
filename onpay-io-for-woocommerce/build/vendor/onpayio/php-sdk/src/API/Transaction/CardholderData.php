@@ -23,7 +23,7 @@ class CardholderData
         $this->door = isset($data['door']) ? $data['door'] : null;
         $this->postalCode = isset($data['postal_code']) ? $data['postal_code'] : null;
         $this->city = isset($data['city']) ? $data['city'] : null;
-        $this->country = isset($data['country']) ? \intval($data['country']) : null;
+        $this->country = isset($data['country']) ? intval($data['country']) : null;
         $this->email = isset($data['email']) ? $data['email'] : null;
         $this->phone = isset($data['phone']) ? $data['phone'] : null;
         if (isset($data['delivery_address'])) {
@@ -39,7 +39,7 @@ class CardholderData
             $this->deliveryDoor = isset($data['delivery_address']['door']) ? $data['delivery_address']['door'] : null;
             $this->deliveryPostalCode = isset($data['delivery_address']['postal_code']) ? $data['delivery_address']['postal_code'] : null;
             $this->deliveryCity = isset($data['delivery_address']['city']) ? $data['delivery_address']['city'] : null;
-            $this->deliveryCountry = isset($data['delivery_address']['country']) ? \intval($data['delivery_address']['country']) : null;
+            $this->deliveryCountry = isset($data['delivery_address']['country']) ? intval($data['delivery_address']['country']) : null;
         }
         $this->extraFields = isset($data['extra']) ? $data['extra'] : null;
     }

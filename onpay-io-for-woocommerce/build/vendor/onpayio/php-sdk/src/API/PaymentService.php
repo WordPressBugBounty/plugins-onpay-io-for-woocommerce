@@ -69,12 +69,12 @@ class PaymentService
     {
         $missingData = [];
         foreach ($this->requiredFields as $requiredField) {
-            if (!\array_key_exists($requiredField, $this->paymentData)) {
+            if (!array_key_exists($requiredField, $this->paymentData)) {
                 $missingData[] = "Missing required field in payment request: {$requiredField}";
             }
         }
         if (!empty($missingData)) {
-            throw new MissingDataException(\implode("\n", $missingData));
+            throw new MissingDataException(implode("\n", $missingData));
         }
     }
     /**
@@ -84,7 +84,7 @@ class PaymentService
     {
         $this->paymentData = $this->paymentWindow->getAvailableFields();
         if ($this->paymentWindow->getInfo() !== null) {
-            $this->paymentData = \array_merge($this->paymentData, $this->paymentWindow->getInfo()->getFieldsWithoutPrefix());
+            $this->paymentData = array_merge($this->paymentData, $this->paymentWindow->getInfo()->getFieldsWithoutPrefix());
         }
         //Remove unnecessary hmac value
         unset($this->paymentData['hmac_sha1']);
@@ -93,7 +93,7 @@ class PaymentService
     {
         $paymentData = [];
         $paymentData['accepturl'] = $this->getPaymentDataByKey('accepturl');
-        $paymentData['amount'] = \intval($this->getPaymentDataByKey('amount'));
+        $paymentData['amount'] = intval($this->getPaymentDataByKey('amount'));
         // Amount must be int with API, but PaymentWindow historically allows strings.
         $paymentData['callbackurl'] = $this->getPaymentDataByKey('callbackurl');
         $paymentData['currency'] = $this->getPaymentDataByKey('currency');
@@ -104,7 +104,7 @@ class PaymentService
         $paymentData['method'] = $this->getPaymentDataByKey('method');
         $paymentData['platform'] = $this->getPaymentDataByKey('platform');
         $paymentData['reference'] = $this->getPaymentDataByKey('reference');
-        $paymentData['testmode'] = \boolval($this->getPaymentDataByKey('testmode'));
+        $paymentData['testmode'] = boolval($this->getPaymentDataByKey('testmode'));
         // Testmode must be boolean with API, but PaymentWindow historically allows mixed.
         $paymentData['type'] = $this->getPaymentDataByKey('type');
         $paymentData['create_transaction'] = $this->getPaymentDataByKey('subscription_with_transaction');
@@ -171,22 +171,20 @@ class PaymentService
     {
         $output = [];
         foreach ($data as $key => $item) {
-            if (\is_array($item)) {
+            if (is_array($item)) {
                 $item = $this->cleanData($item);
-                if (\count($item) > 0) {
+                if (count($item) > 0) {
                     $output[$key] = $item;
                 }
-            } else {
-                if (!\is_null($item)) {
-                    $output[$key] = $item;
-                }
+            } else if (!is_null($item)) {
+                $output[$key] = $item;
             }
         }
         return $output;
     }
     private function getPaymentDataByKey($key)
     {
-        if (!\array_key_exists($key, $this->paymentData)) {
+        if (!array_key_exists($key, $this->paymentData)) {
             return null;
         }
         return $this->paymentData[$key];

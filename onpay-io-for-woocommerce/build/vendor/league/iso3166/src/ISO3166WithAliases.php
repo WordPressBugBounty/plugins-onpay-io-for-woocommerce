@@ -18,26 +18,26 @@ class ISO3166WithAliases implements ISO3166DataProvider
     {
         $this->source = $iso3166;
     }
-    public function name(string $name) : array
+    public function name(string $name): array
     {
         $aliases = ['Bolivia' => 'Bolivia (Plurinational State of)', 'Bolivia, Plurinational State of' => 'Bolivia (Plurinational State of)', 'Congo-Kinshasa' => 'Congo (Democratic Republic of the)', 'Congo, Democratic Republic of the' => 'Congo (Democratic Republic of the)', 'Czech Republic' => 'Czechia', 'Iran' => 'Iran (Islamic Republic of)', 'North Korea' => 'Korea (Democratic People\'s Republic of)', 'South Korea' => 'Korea (Republic of)', 'Laos' => 'Lao People\'s Democratic Republic', 'Micronesia' => 'Micronesia (Federated States of)', 'Moldova' => 'Moldova (Republic of)', 'Palestine' => 'Palestine, State of', 'Russia' => 'Russian Federation', 'Saint Martin' => 'Saint Martin (French part)', 'Sint Maarten' => 'Sint Maarten (Dutch part)', 'Taiwan' => 'Taiwan (Province of China)', 'Tanzania' => 'Tanzania, United Republic of', 'United Kingdom' => 'United Kingdom of Great Britain and Northern Ireland', 'United States' => 'United States of America', 'Venezuela' => 'Venezuela (Bolivarian Republic of)', 'Vietnam' => 'Viet Nam'];
         foreach ($aliases as $alias => $full) {
-            if (0 === \strcasecmp($alias, $name)) {
+            if (0 === strcasecmp($alias, $name)) {
                 $name = $full;
                 break;
             }
         }
         return $this->source->name($name);
     }
-    public function alpha2(string $alpha2) : array
+    public function alpha2(string $alpha2): array
     {
         return $this->source->alpha2($alpha2);
     }
-    public function alpha3(string $alpha3) : array
+    public function alpha3(string $alpha3): array
     {
         return $this->source->alpha3($alpha3);
     }
-    public function numeric(string $numeric) : array
+    public function numeric(string $numeric): array
     {
         return $this->source->numeric($numeric);
     }

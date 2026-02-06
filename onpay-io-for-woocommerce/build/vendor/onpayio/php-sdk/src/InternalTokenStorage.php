@@ -78,7 +78,7 @@ class InternalTokenStorage implements oauthTokenStorageInterface
             $json = $this->onpayTokenInterface->getToken();
         }
         if (null !== $json && '' !== $json) {
-            if (\strpos($json, 'provider_id') !== \false) {
+            if (strpos($json, 'provider_id') !== \false) {
                 // Json is of OnPay/oauth2-client format
                 $accessToken = AccessToken::fromJson($json);
             } else {
@@ -96,13 +96,13 @@ class InternalTokenStorage implements oauthTokenStorageInterface
     private function convertToken()
     {
         $json = $this->onpayTokenInterface->getToken();
-        $decoded = \json_decode($json, \true);
+        $decoded = json_decode($json, \true);
         // Populate required fields with data indicating that the access token is expired, triggering the oauth2 client to refresh it.
         $decoded['provider_id'] = $this->authUrl . '|' . $this->clientId;
-        $decoded['issued_at'] = \date('Y-m-d H:i:s', \strtotime('-1 month'));
+        $decoded['issued_at'] = date('Y-m-d H:i:s', strtotime('-1 month'));
         $decoded['expires_in'] = 3600;
         $decoded['scope'] = $this->scope;
-        $json = \json_encode($decoded);
+        $json = json_encode($decoded);
         $this->onpayTokenInterface->saveToken($json);
     }
 }
