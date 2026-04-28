@@ -30,7 +30,7 @@
 * Author URI: https://onpay.io/
 * Text Domain: wc-onpay
 * Domain Path: /languages
-* Version: 1.0.50
+* Version: 1.0.51
 **/
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -67,7 +67,7 @@ function init_onpay() {
     include_once __DIR__ . '/classes/gateway-klarna.php';
 
     class WC_OnPay extends WC_Payment_Gateway {
-        const PLUGIN_VERSION = '1.0.50';
+        const PLUGIN_VERSION = '1.0.51';
 
         const SETTING_ONPAY_GATEWAY_ID = 'gateway_id';
         const SETTING_ONPAY_SECRET = 'secret';
@@ -94,6 +94,7 @@ function init_onpay() {
         const SETTING_ONPAY_SURCHARGE_VAT_OVERRIDE = 'surcharge_vat_override';
 
         const WC_ONPAY_ID = 'wc_onpay';
+        const WC_ONPAY_ADMIN_INLINE_HANDLE = 'wc-onpay-admin-inline';
         const WC_ONPAY_SETTINGS_ID = 'onpay';
         const WC_ONPAY_PLATFORM_STRING = 'woocommerce/' . self::PLUGIN_VERSION . '/'. WC_VERSION;
 
@@ -176,6 +177,17 @@ function init_onpay() {
             add_action('wp_ajax_onpay_clear_declined_flag', [$this, 'ajax_clear_declined_flag']);
             add_action('wp_ajax_nopriv_onpay_clear_declined_flag', [$this, 'ajax_clear_declined_flag']);
             add_action('woocommerce_checkout_order_processed', [$this, 'clearDeclinedFlagOnOrder'], 10, 1);
+            add_filter('wcs_get_retry_rule', [$this, 'maybeBlockSubscriptionRetry'], 10, 3);
+        }
+
+        /**
+         * Registers and enqueues an empty script handle used as a target for admin inline JS.
+         */
+        private function ensure_admin_inline_script_handle() {
+            if (!wp_script_is(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'registered')) {
+                wp_register_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, '', ['jquery'], self::PLUGIN_VERSION, true);
+            }
+            wp_enqueue_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE);
         }
 
         public function register_scripts() {
@@ -592,6 +604,7 @@ function init_onpay() {
          * Method that renders payment gateway settings page in woocommerce
          */
         public function admin_options() {
+            $this->ensure_admin_inline_script_handle();
             $onpayApi = $this->get_onpay_client(true);
 
             $this->handle_oauth_callback();
@@ -616,6 +629,7 @@ function init_onpay() {
                     'exception_code' => $exception->getCode(),
                     'location' => 'admin_options_ping'
                 ]);
+                wp_enqueue_style('wc-onpay-source-sans-3', 'https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap', [], null );
                 $html .= $this->getOnboardingHtml($onpayApi->authorize());
                 $GLOBALS['hide_save_button'] = true;
                 $hideForm = true;
@@ -917,8 +931,8 @@ function init_onpay() {
 
                 $html .= '</tbody></table>';
 
-                wc_enqueue_js('$("#button_onpay_apilogout").on("click", function(event) {event.preventDefault(); if(confirm(\''. __('Are you sure you want to logout from Onpay?', 'wc-onpay') . '\')) {window.location.href = window.location.href+"&detach=1";}})');
-                wc_enqueue_js('$("#button_onpay_refreshsecret").on("click", function(event) {event.preventDefault(); if(confirm(\''. __('Are you sure you want to refresh gateway ID and secret?', 'wc-onpay') . '\')) {window.location.href = window.location.href+"&refresh=1";}})');
+                wp_add_inline_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'jQuery(function($){$("#button_onpay_apilogout").on("click", function(event) {event.preventDefault(); if(confirm(\''. __('Are you sure you want to logout from Onpay?', 'wc-onpay') . '\')) {window.location.href = window.location.href+"&detach=1";}});});');
+                wp_add_inline_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'jQuery(function($){$("#button_onpay_refreshsecret").on("click", function(event) {event.preventDefault(); if(confirm(\''. __('Are you sure you want to refresh gateway ID and secret?', 'wc-onpay') . '\')) {window.location.href = window.location.href+"&refresh=1";}});});');
             
                 return $html;
         }
@@ -1081,6 +1095,7 @@ function init_onpay() {
          * Method that renders the meta box for OnPay transactions on order page.
          */
         public function order_meta_box($post, array $meta) {
+            $this->ensure_admin_inline_script_handle();
             $onpayApi = $this->get_onpay_client();
 
             try {
@@ -1111,7 +1126,10 @@ function init_onpay() {
                 try {
                     $transaction = $onpayApi->transaction()->getTransaction($transactionId);
                 } catch (OnPay\API\Exception\ApiException $exception) {
-                    $this->outputString(__('Error: ', 'wc-onpay') . $this->cleanOutput($exception->getMessage()));
+                    if (function_exists('wc_get_logger')) {
+                        wc_get_logger()->error('OnPay API exception: ' . $exception->getMessage(), ['source' => 'wc-onpay']);
+                    }
+                    $this->outputString(__('Error: Unable to retrieve transaction from OnPay', 'wc-onpay'));
                     exit;
                 }
 
@@ -1191,20 +1209,20 @@ function init_onpay() {
                 $buttonsShown = false;
                 if ($transaction->charged < $transaction->amount && $transaction->status === 'active') {
                     $html .= '<button class="button-primary" id="button_onpay_capture_reveal">' . __('Capture', 'wc-onpay') . '</button>&nbsp;';
-                    wc_enqueue_js('$("#button_onpay_capture_reveal").on("click", function(event) {event.preventDefault(); $("#onpay_action_capture").slideDown(); $("#onpay_action_buttons").slideUp(); })');
+                    wp_add_inline_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'jQuery(function($){$("#button_onpay_capture_reveal").on("click", function(event) {event.preventDefault(); $("#onpay_action_capture").slideDown(); $("#onpay_action_buttons").slideUp(); });});');
                     $buttonsShown = true;
                 }
 
                 // Show refund button if transaction is refundable, and refund integration setting is disabled.
                 if (0 < $transaction->charged && $transaction->refunded < $transaction->charged) {
                     $html .= '<button class="button-secondary" id="button_onpay_refund_reveal">' . __('Refund in OnPay', 'wc-onpay') . '</button>&nbsp;';
-                    wc_enqueue_js('$("#button_onpay_refund_reveal").on("click", function(event) {event.preventDefault(); $("#onpay_action_refund").slideDown(); $("#onpay_action_buttons").slideUp(); })');
+                    wp_add_inline_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'jQuery(function($){$("#button_onpay_refund_reveal").on("click", function(event) {event.preventDefault(); $("#onpay_action_refund").slideDown(); $("#onpay_action_buttons").slideUp(); });});');
                     $buttonsShown = true;
                 }
 
                 if ($transaction->status === 'active') {
                     $html .= '<button class="button-secondary" id="button_onpay_cancel_reveal">' . ($transaction->charged === 0 ? __('Cancel transaction', 'wc-onpay') : __('Finish transaction', 'wc-onpay')) . '</button>&nbsp;';
-                    wc_enqueue_js('$("#button_onpay_cancel_reveal").on("click", function(event) {event.preventDefault(); $("#onpay_action_cancel").slideDown(); $("#onpay_action_buttons").slideUp(); })');
+                    wp_add_inline_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'jQuery(function($){$("#button_onpay_cancel_reveal").on("click", function(event) {event.preventDefault(); $("#onpay_action_cancel").slideDown(); $("#onpay_action_buttons").slideUp(); });});');
                     $buttonsShown = true;
                 }
                 if ($buttonsShown) {
@@ -1221,7 +1239,7 @@ function init_onpay() {
                 $html .= '<input class="button-primary" type="submit" name="onpay_capture" value="' . __('Capture', 'wc-onpay') . '">&nbsp;';
                 $html .= '<button class="button-secondary" id="button_onpay_capture_hide">' . __('Cancel', 'wc-onpay') . '</button>';
                 $html .= '</div>';
-                wc_enqueue_js('$("#button_onpay_capture_hide").on("click", function(event) {event.preventDefault(); $("#onpay_action_capture").slideUp(); $("#onpay_action_buttons").slideDown(); })');
+                wp_add_inline_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'jQuery(function($){$("#button_onpay_capture_hide").on("click", function(event) {event.preventDefault(); $("#onpay_action_capture").slideUp(); $("#onpay_action_buttons").slideDown(); });});');
                 
                 // Hidden refund form, revealed by button above
                 $html .= '<div id="onpay_action_refund" style="display: none;">';
@@ -1231,7 +1249,7 @@ function init_onpay() {
                 $html .= '<input class="button-primary" type="submit" name="onpay_refund" value="' . __('Refund', 'wc-onpay') . '">&nbsp;';
                 $html .= '<button class="button-secondary" id="button_onpay_refund_hide">' . __('Cancel', 'wc-onpay') . '</button>';
                 $html .= '</div>';
-                wc_enqueue_js('$("#button_onpay_refund_hide").on("click", function(event) {event.preventDefault(); $("#onpay_action_refund").slideUp(); $("#onpay_action_buttons").slideDown(); })');
+                wp_add_inline_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'jQuery(function($){$("#button_onpay_refund_hide").on("click", function(event) {event.preventDefault(); $("#onpay_action_refund").slideUp(); $("#onpay_action_buttons").slideDown(); });});');
 
                 // Hidden cancel/finish form, revealed by button above
                 $html .= '<div id="onpay_action_cancel" style="display: none;">';
@@ -1240,7 +1258,7 @@ function init_onpay() {
                 $html .= '<input class="button-primary" type="submit" name="onpay_cancel" value="' . ($transaction->charged === 0 ? __('Cancel transaction', 'wc-onpay') : __('Finish transaction', 'wc-onpay')) . '">&nbsp;';
                 $html .= '<button class="button-secondary" id="button_onpay_cancel_hide">' . __('Cancel', 'wc-onpay') . '</button>';
                 $html .= '</div>';
-                wc_enqueue_js('$("#button_onpay_cancel_hide").on("click", function(event) {event.preventDefault(); $("#onpay_action_cancel").slideUp(); $("#onpay_action_buttons").slideDown(); })');
+                wp_add_inline_script(self::WC_ONPAY_ADMIN_INLINE_HANDLE, 'jQuery(function($){$("#button_onpay_cancel_hide").on("click", function(event) {event.preventDefault(); $("#onpay_action_cancel").slideUp(); $("#onpay_action_buttons").slideDown(); });});');
             }
             $this->outputString($html);
         }
@@ -1293,6 +1311,14 @@ function init_onpay() {
             // Get subscription order
             $subscriptionOrder = new WC_Subscription($newOrder->get_meta('_subscription_renewal'));
             $subscriptionId = $this->getOnpayId($subscriptionOrder);
+
+            // Check if subscription has a valid OnPay ID
+            if (null === $subscriptionId) {
+                $newOrder->add_order_note(__('Subscription renewal failed: No OnPay subscription ID found. The subscription may not be linked to OnPay.', 'wc-onpay'));
+                $newOrder->update_meta_data('_onpay_retry_blocked', 'yes');
+                $newOrder->update_status('failed', __('No OnPay subscription ID found.', 'wc-onpay'));
+                return;
+            }
             
             // Get customer
             $customer = new WC_Customer($subscriptionOrder->get_customer_id());
@@ -1301,8 +1327,30 @@ function init_onpay() {
             $currencyHelper = new wc_onpay_currency_helper();
             $orderCurrency = $currencyHelper->fromAlpha3($newOrder->get_currency());
             $orderAmount = $currencyHelper->majorToMinor($newOrder->get_total(), $orderCurrency->numeric, '.');
-            
-            $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($subscriptionId);
+
+            // Attempt to get subscription from OnPay
+            try {
+                $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($subscriptionId);
+            } catch (OnPay\API\Exception\ConnectionException $exception) {
+                $newOrder->add_order_note(__('Subscription renewal failed: No connection to OnPay API. Please check your OnPay connection and retry.', 'wc-onpay'));
+                $newOrder->update_status('failed', __('No connection to OnPay API.', 'wc-onpay'));
+                return;
+            } catch (OnPay\API\Exception\TokenException $exception) {
+                wc_onpay_logger_helper::logTokenProblem('TokenException during subscription renewal', [
+                    'order_id' => $newOrder->get_id(),
+                    'subscription_id' => $subscriptionId,
+                    'exception_message' => $exception->getMessage(),
+                    'exception_code' => $exception->getCode(),
+                    'location' => 'subscriptionPayment'
+                ]);
+                $newOrder->add_order_note(__('Subscription renewal failed: OnPay authorization has expired or is invalid. Please reconnect to OnPay and retry.', 'wc-onpay'));
+                $newOrder->update_status('failed', __('OnPay authorization expired.', 'wc-onpay'));
+                return;
+            } catch (\Exception $exception) {
+                $newOrder->add_order_note(sprintf(__('Subscription renewal failed: Could not retrieve subscription from OnPay. Error: %s', 'wc-onpay'), $exception->getMessage()));
+                $newOrder->update_status('failed', __('Could not retrieve subscription from OnPay.', 'wc-onpay'));
+                return;
+            }
             
             // Fetch surcharge settings
             $surchargeEnabled = $this->get_option(WC_OnPay::SETTING_ONPAY_SURCHARGE_ENABLE) === 'yes';
@@ -1318,7 +1366,9 @@ function init_onpay() {
 
             // Subscription no longer active.
             if ($onpaySubscription->status !== 'active') {
+                $subscriptionOrder->add_order_note(__('Subscription is no longer active in OnPay.', 'wc-onpay'));
                 $subscriptionOrder->update_status(__('expired', 'Subscription no longer active in OnPay.', 'wc-onpay'));
+                $newOrder->update_meta_data('_onpay_retry_blocked', 'yes');
                 $newOrder->update_status('failed', __('Subscription no longer active in OnPay.', 'wc-onpay'));
                 return;
             }
@@ -1331,7 +1381,23 @@ function init_onpay() {
                     $surchargeEnabled,
                     $surchargeVatRate
                 );
+            } catch (OnPay\API\Exception\ConnectionException $exception) {
+                $newOrder->add_order_note(__('Subscription renewal failed: Lost connection to OnPay API while creating transaction. Please check your OnPay connection and retry.', 'wc-onpay'));
+                $newOrder->update_status('failed', __('No connection to OnPay API.', 'wc-onpay'));
+                return;
+            } catch (OnPay\API\Exception\TokenException $exception) {
+                wc_onpay_logger_helper::logTokenProblem('TokenException during subscription transaction creation', [
+                    'order_id' => $newOrder->get_id(),
+                    'subscription_id' => $subscriptionId,
+                    'exception_message' => $exception->getMessage(),
+                    'exception_code' => $exception->getCode(),
+                    'location' => 'subscriptionPayment_createTransaction'
+                ]);
+                $newOrder->add_order_note(__('Subscription renewal failed: OnPay authorization has expired or is invalid. Please reconnect to OnPay and retry.', 'wc-onpay'));
+                $newOrder->update_status('failed', __('OnPay authorization expired.', 'wc-onpay'));
+                return;
             } catch (OnPay\API\Exception\ApiException $exception) {
+                $newOrder->add_order_note(sprintf(__('Subscription renewal failed: Authorizing new transaction failed. Error: %s', 'wc-onpay'), $exception->getMessage()));
                 $subscriptionOrder->add_order_note(__('Authorizing new transaction failed.', 'wc-onpay'));
                 $newOrder->update_status('failed', __('Authorizing new transaction failed.', 'wc-onpay'));
                 return;
@@ -1368,6 +1434,42 @@ function init_onpay() {
             } else{
                 $subscriptionOrder->add_order_note(__('Subscription cancelled in OnPay.', 'wc-onpay'));
             }
+        }
+
+        /**
+         * Filter to block WooCommerce Subscriptions auto-retry for expired subscriptions or orders without OnPay ID.
+         * Returns null to prevent retry scheduling when the subscription is expired or not linked to OnPay.
+         *
+         * @param WCS_Retry_Rule|null $rule The retry rule to apply
+         * @param int $retry_number The retry attempt number
+         * @param int $order_id The order ID
+         * @return WCS_Retry_Rule|null
+         */
+        public function maybeBlockSubscriptionRetry($rule, $retry_number, $order_id) {
+            $order = wc_get_order($order_id);
+            
+            if (!$order) {
+                return $rule;
+            }
+
+            // Check if this order failed due to missing OnPay ID or expired OnPay subscription
+            $onpayRetryBlocked = $order->get_meta('_onpay_retry_blocked');
+            
+            if ($onpayRetryBlocked === 'yes') {
+                $order->add_order_note(__('Automatic payment retry blocked: Subscription is expired or not linked to OnPay.', 'wc-onpay'));
+                return null; // Returning null blocks the retry
+            }
+
+            // Also check if the related subscription is expired in WooCommerce
+            $subscriptions = wcs_get_subscriptions_for_renewal_order($order_id);
+            foreach ($subscriptions as $subscription) {
+                if ($subscription->has_status('expired')) {
+                    $order->add_order_note(__('Automatic payment retry blocked: Subscription is expired.', 'wc-onpay'));
+                    return null; // Returning null blocks the retry
+                }
+            }
+
+            return $rule;
         }
 
         private function cancelOnpaySubscription($subscriptionOrder) {
@@ -1725,15 +1827,26 @@ function init_onpay() {
         }
 
 	    private function getOnboardingHtml($authUrl) {
-            $html = '<div style="border-radius: .25rem; text-align: center; background-color: #ffffff; box-shadow: 0 15px 35px rgba(50,50,93,.1), 0 5px 15px rgba(0,0,0,.07); -webkit-box-shadow: 0 15px 35px rgba(50,50,93,.1), 0 5px 15px rgba(0,0,0,.07); padding: 1.25rem; max-width: 500px; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between;">';
-            $html .= '<a href="' . $authUrl . '" style="background-color: #fb617f; color: #fff; border-color: #fb617f; font-weight: bold; padding: .75rem; font-size: 1rem; line-height: 1.5; border-radius: .25rem; text-decoration: none;">' . __('Log in with OnPay account', 'wc-onpay') . '</a>';
-            $html .= '<hr style="border-top: 1px solid rgba(0,0,0,.1); width: 100%; margin: 20px 0 20px 0;">';
-            $html .= '<h3 style="margin: 0 0 15px 0;">' . __('Don\'t have an OnPay account yet?', 'wc-onpay') . '</h3>';
-            $html .= '<span style="margin-bottom: auto;">' . __('Order one through DanDomain from DKK 0,- per month.', 'wc-onpay') . '</span>';
-            $html .= '<div style="display: flex;flex-wrap: wrap;align-content: space-between;">';
-            $html .= '<a href="https://dandomain.dk/betalingssystem/priser" style="margin: auto; width: 43%; background-color: #fb617f; color: #fff; border-color: #fb617f; font-weight: bold; padding: .375rem .75rem; line-height: 1.5; border-radius: .25rem; text-decoration: none;" target="_blank">' . __('Get OnPay now', 'wc-onpay') . '</a>';
-            $html .= '<a href="https://onpay.io/#brands" style="margin: auto; width: 43%; background-color: #fff; color: #fb617f; border: 1px solid #fb617f; font-weight: bold; padding: .375rem .75rem; line-height: 1.5; border-radius: .25rem; text-decoration: none;" target="_blank">' . __('OnPay sellers', 'wc-onpay') . '</a>';
+            $locale = determine_locale();
+            $docsUrl = (strpos($locale, 'da') === 0)
+            ? 'https://onpay.io/docs/da/woocommerce.html'
+            : 'https://onpay.io/docs/en/woocommerce.html';
+            $backgroundUrl = plugin_dir_url(__FILE__) . 'assets/img/noisy-gradients.png';
+            $onpayLogoUrl = plugin_dir_url(__FILE__) . 'assets/img/logo-OnPay.svg';
+
+            $html = '<div style="font-family: \'Source Sans 3\', sans-serif; border-radius: .25rem; background-color: #ffffff; box-shadow: 0 15px 35px rgba(50,50,93,.1), 0 5px 15px rgba(0,0,0,.07); -webkit-box-shadow: 0 15px 35px rgba(50,50,93,.1), 0 5px 15px rgba(0,0,0,.07); max-width: 681px; min-height: 200px; display: flex; flex-direction: column; justify-content: space-between;">';
+            $html .= '<div style="background-image: url(\'' . $backgroundUrl. '\'); display: flex; justify-content: center; align-items: center; padding: 1.375rem 0; border-radius: .25rem .25rem 0 0;">';
+            $html .= '<img src="' . $onpayLogoUrl . '" alt="OnPay logo" style="height: auto; width: 7.75rem;">';
+            $html .= '</div>';
+            $html .= '<div style="padding: 2rem; display: flex; flex-direction: column; justify-content: space-between;">';
+            $html .= '<h2 style="margin: 0 0 1rem 0; font-size: 1.5rem;">' . __('Get started with OnPay', 'wc-onpay') . '</h2>';
+            $html .= '<h5 style="margin: 0 0 1rem 0; font-size: 0.9375rem; font-weight: 400;">' . __('Start accepting card payments and digital wallets, with transparent fees and easy setup.', 'wc-onpay') . '</h5>';
+            $html .= '<a href="' . $authUrl . '" class="wc-onpay-connect-btn" style="background-color: #fb617f; color: #fff; font-weight: bold; padding: .5rem; font-size: 0.875rem; line-height: 1.5; border-radius: .25rem; text-decoration: none; text-align: center; display: block;">' . __('Connect your OnPay account', 'wc-onpay') . '</a>';
+            $html .= '<hr style="border-top: 1px solid rgba(0,0,0,.1); width: 100%; margin: 1rem 0;">';
+            $html .= '<p style="text-align: center; margin: 0; font-size: 0.875rem;">' . __('Need help?', 'wc-onpay') . ' <a href="' . $docsUrl . '" target="_blank" style="color: #fb617f;">' . __('Follow our setup guide', 'wc-onpay') . '</a> ' . __('for step-by-step instructions.', 'wc-onpay') . '</p>';
             $html .= '</div></div>';
+
+            $html .= '<style> .wc-onpay-connect-btn:hover { background-color: #e14f6d !important; } </style>';
 
     	    return $html;
 	    }
