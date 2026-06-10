@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.52] - 2026-06-09
+- Added auto-cancel option
+- Added result to transaction history
+- Validated and updated supported wordpress and woocommerce version
+
 ## [1.0.51] - 2026-04-28
 - Change onboarding and update language files
 - Improve subscription renewal handling for OnPay connection issues

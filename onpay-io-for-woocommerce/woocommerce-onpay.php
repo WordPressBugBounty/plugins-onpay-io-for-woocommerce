@@ -30,7 +30,7 @@
 * Author URI: https://onpay.io/
 * Text Domain: wc-onpay
 * Domain Path: /languages
-* Version: 1.0.51
+* Version: 1.0.52
 **/
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -67,7 +67,7 @@ function init_onpay() {
     include_once __DIR__ . '/classes/gateway-klarna.php';
 
     class WC_OnPay extends WC_Payment_Gateway {
-        const PLUGIN_VERSION = '1.0.51';
+        const PLUGIN_VERSION = '1.0.52';
 
         const SETTING_ONPAY_GATEWAY_ID = 'gateway_id';
         const SETTING_ONPAY_SECRET = 'secret';
@@ -88,6 +88,7 @@ function init_onpay() {
         const SETTING_ONPAY_TESTMODE = 'testmode_enabled';
         const SETTING_ONPAY_CARDLOGOS = 'card_logos';
         const SETTING_ONPAY_STATUS_AUTOCAPTURE = 'status_autocapture';
+        const SETTING_ONPAY_STATUS_AUTOCANCEL = 'status_autocancel';
         const SETTING_ONPAY_REFUND_INTEGRATION = 'refund_integration';
         const SETTING_ONPAY_SURCHARGE_ENABLE = 'surcharge_enable';
         const SETTING_ONPAY_SURCHARGE_VAT_RATE = 'surcharge_vat_rate';
@@ -167,6 +168,7 @@ function init_onpay() {
             add_filter('woocommerce_store_api_checkout_update_order_from_request', [$this, 'logCheckoutUpdate'], 1, 2);
             add_action('woocommerce_scheduled_subscription_payment_onpay_card', [$this, 'subscriptionPayment'], 1, 2);
             add_action('woocommerce_order_status_completed', [$this, 'orderStatusCompleteEvent']);
+            add_action('woocommerce_order_status_cancelled', [$this, 'orderStatusCancelledEvent']);
             add_action('woocommerce_subscription_cancelled_onpay_card', [$this, 'subscriptionCancellation']);
             add_action('woocommerce_order_refunded', [$this, 'refundEvent'], 10, 2);
             add_action('woocommerce_process_shop_order_meta', [$this, 'handle_order_meta_box']);
@@ -749,6 +751,14 @@ function init_onpay() {
                     'type' => 'checkbox',
                     'default' => 'no',
                 ],
+                self::SETTING_ONPAY_STATUS_AUTOCANCEL => [
+                    'title' => __('Automatic cancel', 'wc-onpay'),
+                    'label' => __('Automatic cancel of transactions on status cancelled', 'wc-onpay'),
+                    'description' => __( 'Automatically cancel transactions in OnPay, when orders are marked with status cancelled', 'wc-onpay' ),
+                    'desc_tip' => true,
+                    'type' => 'checkbox',
+                    'default' => 'no',
+                ],
                 self::SETTING_ONPAY_REFUND_INTEGRATION => [
                     'title' => __('Integrate with refund feature', 'wc-onpay'),
                     'label' => __('Integrate with the built in refund feature in WooCommerce', 'wc-onpay'),
@@ -1043,6 +1053,41 @@ function init_onpay() {
         }
 
         /**
+         * Method that fires when orders change status to cancelled
+         */
+        public function orderStatusCancelledEvent($orderId) {
+            $order = new WC_Order($orderId);
+            $transactionId = $this->getOnpayId($order);
+            // Check if order payment method is OnPay
+            if ($this->isOnPayMethod($order->get_payment_method()) && null !== $transactionId) {
+                // If autocancel is not enabled, no need to do anything
+                if($this->get_option(WC_OnPay::SETTING_ONPAY_STATUS_AUTOCANCEL) === 'yes') {
+                    try {
+                        $transaction = $this->get_onpay_client()->transaction()->getTransaction($transactionId);
+                        // Only attempt to cancel transactions that are still active
+                        if ($transaction->status === 'active') {
+                            $this->get_onpay_client()->transaction()->cancelTransaction($transaction->uuid);
+                            $order->add_order_note( __( 'Status changed to cancelled. Transaction was automatically cancelled in OnPay.', 'wc-onpay' ));
+                        }
+                    } catch (OnPay\API\Exception\ConnectionException $exception) { // No connection to OnPay API
+                        $order->add_order_note(__('Automatic cancel failed.') . ' ' . __('No connection to OnPay', 'wc-onpay'));
+                    } catch (OnPay\API\Exception\TokenException $exception) { // Something's wrong with the token, print link to reauth
+                        wc_onpay_logger_helper::logTokenProblem('TokenException during automatic cancel', [
+                            'order_id' => $orderId,
+                            'transaction_id' => $transactionId,
+                            'exception_message' => $exception->getMessage(),
+                            'exception_code' => $exception->getCode(),
+                            'location' => 'orderStatusCancelledEvent'
+                        ]);
+                        $order->add_order_note(__( 'Automatic cancel failed.') . ' ' . __('Invalid OnPay token, please login on settings page', 'wc-onpay' ));
+                    } catch (\Exception $exception) {
+                        $order->add_order_note(__('Automatic cancel failed.', 'wc-onpay') . ' ' . $exception->getMessage());
+                    }
+                }
+            }
+        }
+
+        /**
          * Function that handles refund event
          */
         public function refundEvent($order_id, $refund_id) {
@@ -1185,6 +1230,7 @@ function init_onpay() {
                 $html .= '<th>' . __('Date & Time', 'wc-onpay') . '</th>';
                 $html .= '<th>' . __('Action', 'wc-onpay') . '</th>';
                 $html .= '<th>' . __('Amount', 'wc-onpay') . '</th>';
+                $html .= '<th>' . __('Result', 'wc-onpay') . '</th>';
                 $html .= '<th>' . __('User', 'wc-onpay') . '</th>';
                 $html .= '<th>' . __('IP', 'wc-onpay') . '</th>';
                 $html .= '</thead><tbody>';
@@ -1194,6 +1240,8 @@ function init_onpay() {
                    $html .= '<td>' . $this->cleanOutput($history->dateTime->format('Y-m-d H:i:s')) . '</td>';
                    $html .= '<td>' . $this->cleanOutput($history->action) . '</td>';
                    $html .= '<td>' . $this->cleanOutput($currency->alpha3 . ' ' . $currencyHelper->minorToMajor($history->amount, $currency->numeric)) . '</td>';
+                   $resultText = $this->cleanOutput($history->resultText);
+                   $html .= '<td>' . $this->cleanOutput($history->resultCode) . ($resultText !== '' ? ' (' . $resultText . ')' : '') . '</td>';
                    $html .= '<td>' . $this->cleanOutput($history->author) . '</td>';
                    $html .= '<td>' . $this->cleanOutput($history->ip) . '</td>';
                    $html .= '</tr>';
@@ -1819,7 +1867,7 @@ function init_onpay() {
         }
 
         private function cleanOutput($string) {
-            return (string)ent2ncr(htmlentities($string));
+            return (string)ent2ncr(htmlentities((string)$string));
         }
 
         private function outputString($string) {
