@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.39] - 2026-09-01
+- Accept alphanumeric gateway_id in OnPayAPI constructor
+
+## [1.0.38] - 2026-04-29
+- Fixed broken 1.0.37 release
+
+## [1.0.37] - 2026-04-29
+- Added SECURITY.md
+- Add cardMask property to DetailedTransaction
+
+## [1.0.36] - 2025-10-29
+- Bumped minimum version of PHP supported, to 7.4
+- Fixed typing bug in PaymentWindow object
+
+## [1.0.35] - 2025-10-01
+- Add input validation for transaction identifiers to prevent invalid API calls
+- Add input validation and unit tests for SubscriptionService methods
+- Added new cart parameters to payment creation objects
+
 ## [1.0.34] - 2025-03-07
 - Add surcharge fields to payment create API calls
 

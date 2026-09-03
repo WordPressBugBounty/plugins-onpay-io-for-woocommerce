@@ -17,6 +17,7 @@ class DetailedTransaction extends SimpleTransaction
         $this->expiryMonth = isset($data['expiry_month']) ? $data['expiry_month'] : null;
         $this->cardCountry = isset($data['card_country']) ? $data['card_country'] : null;
         $this->cardBin = isset($data['card_bin']) ? $data['card_bin'] : null;
+        $this->cardMask = isset($data['card_mask']) ? $data['card_mask'] : null;
         $this->ip = isset($data['ip']) ? $data['ip'] : null;
         $this->ipCountry = isset($data['ip_country']) ? $data['ip_country'] : null;
         $this->hasCardholderData = isset($data['has_cardholder_data']) ? $data['has_cardholder_data'] : \false;
@@ -39,6 +40,10 @@ class DetailedTransaction extends SimpleTransaction
      * @var string
      */
     public $cardBin;
+    /**
+     * @var string
+     */
+    public $cardMask;
     /**
      * @var int
      */

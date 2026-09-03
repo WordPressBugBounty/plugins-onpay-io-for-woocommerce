@@ -6,6 +6,7 @@ use WoocommerceOnpay\OnPay\API\Subscription\DetailedSubscription;
 use WoocommerceOnpay\OnPay\API\Subscription\SimpleSubscription;
 use WoocommerceOnpay\OnPay\API\Subscription\SubscriptionCollection;
 use WoocommerceOnpay\OnPay\API\Transaction\DetailedTransaction;
+use WoocommerceOnpay\OnPay\API\Exception\ApiException;
 use WoocommerceOnpay\OnPay\API\Util\Pagination;
 use WoocommerceOnpay\OnPay\OnPayAPI;
 class SubscriptionService
@@ -60,6 +61,9 @@ class SubscriptionService
      */
     public function getSubscription($subscriptionId)
     {
+        if (empty($subscriptionId)) {
+            throw new ApiException('Subscription ID must be provided');
+        }
         $result = $this->api->get('subscription/' . $subscriptionId);
         $subscription = new DetailedSubscription($result['data']);
         $subscription->setLinks($result['links']);
@@ -73,6 +77,9 @@ class SubscriptionService
      */
     public function cancelSubscription($subscriptionId)
     {
+        if (empty($subscriptionId)) {
+            throw new ApiException('Subscription ID must be provided');
+        }
         $result = $this->api->post('subscription/' . $subscriptionId . '/cancel');
         $subscription = new DetailedSubscription($result['data']);
         $subscription->setLinks($result['links']);
@@ -90,6 +97,9 @@ class SubscriptionService
      */
     public function createTransactionFromSubscription($uuid, $amount, $orderId, $surchargeEnabled = \false, $surchargeVatRate = 0)
     {
+        if (empty($uuid)) {
+            throw new ApiException('Subscription UUID must be provided');
+        }
         $json = ['data' => ['amount' => $amount, 'order_id' => $orderId, 'surcharge_enabled' => $surchargeEnabled, 'surcharge_vat_rate' => $surchargeVatRate]];
         $result = $this->api->post('subscription/' . $uuid . '/authorize', $json);
         $transaction = new DetailedTransaction($result['data']);

@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.53] - 2026-09-03
+- Added support for Apple Pay Web
+- Fix surcharge VAT rate missing on guest checkouts
+
 ## [1.0.52] - 2026-06-09
 - Added auto-cancel option
 - Added result to transaction history

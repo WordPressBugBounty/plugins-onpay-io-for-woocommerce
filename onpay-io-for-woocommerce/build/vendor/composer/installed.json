@@ -122,27 +122,27 @@
         },
         {
             "name": "onpayio\/php-sdk",
-            "version": "1.0.34",
-            "version_normalized": "1.0.34.0",
+            "version": "1.0.39",
+            "version_normalized": "1.0.39.0",
             "source": {
                 "type": "git",
                 "url": "https:\/\/github.com\/onpayio\/php-sdk.git",
-                "reference": "e6c63d5db3006d470535a76dab626e4222ea5680"
+                "reference": "949905335517c437e32a9fc974acdd46ef574cf0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https:\/\/api.github.com\/repos\/onpayio\/php-sdk\/zipball\/e6c63d5db3006d470535a76dab626e4222ea5680",
-                "reference": "e6c63d5db3006d470535a76dab626e4222ea5680",
+                "url": "https:\/\/api.github.com\/repos\/onpayio\/php-sdk\/zipball\/949905335517c437e32a9fc974acdd46ef574cf0",
+                "reference": "949905335517c437e32a9fc974acdd46ef574cf0",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
-                "php": ">=5.6"
+                "php": ">=7.4"
             },
             "require-dev": {
                 "phpunit\/phpunit": "^11.4"
             },
-            "time": "2025-03-07T09:54:15+00:00",
+            "time": "2026-09-01T07:35:08+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -158,7 +158,7 @@
             "homepage": "https:\/\/github.com\/onpayio\/php-sdk",
             "support": {
                 "issues": "https:\/\/github.com\/onpayio\/php-sdk\/issues",
-                "source": "https:\/\/github.com\/onpayio\/php-sdk\/tree\/1.0.34"
+                "source": "https:\/\/github.com\/onpayio\/php-sdk\/tree\/1.0.39"
             },
             "install-path": "..\/onpayio\/php-sdk"
         }

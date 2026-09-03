@@ -27,6 +27,9 @@ class TransactionService
      */
     public function getTransaction($identifier)
     {
+        if (empty($identifier)) {
+            throw new ApiException('Transaction number must be provided');
+        }
         $result = $this->api->get('transaction/' . urlencode($identifier));
         $detailedTransaction = new DetailedTransaction($result['data']);
         $detailedTransaction->setLinks($result['links']);
@@ -82,6 +85,9 @@ class TransactionService
     public function captureTransaction($transactionNumber, $amount = null, $postActionChargeAmount = null)
     {
         $jsonBody = null;
+        if (empty($transactionNumber)) {
+            throw new ApiException('Transaction number must be provided');
+        }
         if (null !== $amount && null !== $postActionChargeAmount) {
             // Both amount parameters not allowed at the same time
             throw new ApiException('$amount and $postActionChargeAmount are mutually exclusive and can not both be used together');
@@ -104,6 +110,9 @@ class TransactionService
      */
     public function cancelTransaction($transactionNumber)
     {
+        if (empty($transactionNumber)) {
+            throw new ApiException('Transaction number must be provided');
+        }
         $result = $this->api->post('transaction/' . $transactionNumber . '/cancel');
         $transaction = new DetailedTransaction($result['data']);
         $transaction->setLinks($result['links']);
@@ -128,6 +137,9 @@ class TransactionService
     public function refundTransaction($transactionNumber, $amount = null, $postActionRefundAmount = null)
     {
         $jsonBody = null;
+        if (empty($transactionNumber)) {
+            throw new ApiException('Transaction number must be provided');
+        }
         if (null !== $amount && null !== $postActionRefundAmount) {
             // Both amount parameters not allowed at the same time
             throw new ApiException('$amount and $postActionRefundAmount are mutually exclusive and can not both be used together');
