@@ -1,16 +1,14 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Subscription;
 
 use WoocommerceOnpay\OnPay\API\Util\Pagination;
-class SubscriptionCollection
+final class SubscriptionCollection
 {
     /**
      * @var SimpleSubscription[]
      */
-    public $subscriptions = [];
-    /**
-     * @var Pagination
-     */
-    public $pagination;
+    public array $subscriptions = [];
+    public ?Pagination $pagination = null;
 }

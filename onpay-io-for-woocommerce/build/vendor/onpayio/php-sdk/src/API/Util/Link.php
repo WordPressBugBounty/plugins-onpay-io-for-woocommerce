@@ -1,20 +1,18 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Util;
 
-class Link
+final class Link
 {
-    public function __construct($rel = null, $link = null)
+    /**
+     * @internal Shall not be used outside the library
+     */
+    public function __construct(?string $rel = null, ?string $link = null)
     {
         $this->rel = $rel;
         $this->uri = $link;
     }
-    /**
-     * @var string
-     */
-    public $rel;
-    /**
-     * @var string
-     */
-    public $uri;
+    public ?string $rel = null;
+    public ?string $uri = null;
 }

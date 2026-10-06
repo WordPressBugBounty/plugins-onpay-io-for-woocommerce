@@ -1,14 +1,20 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Util\PaymentMethods\Methods;
 
+use WoocommerceOnpay\OnPay\API\Enum\PaymentMethod;
 use WoocommerceOnpay\OnPay\API\Util\PaymentMethods\Enums\CurrencyCodes;
-use WoocommerceOnpay\OnPay\API\Util\PaymentMethods\Enums\Methods;
 /**
  * @internal Internal use only
  */
 final class PayPal extends PaymentMethodAbstract
 {
     const CURRENCIES = [CurrencyCodes::ALL_CURRENCY_CODES];
-    const METHOD_NAME = Methods::PAYPAL;
+    /** @deprecated Use {@see PayPal::getMethod()} or {@see PaymentMethod::PAYPAL} instead. */
+    const METHOD_NAME = PaymentMethod::PAYPAL->value;
+    public function getMethod(): PaymentMethod
+    {
+        return PaymentMethod::PAYPAL;
+    }
 }

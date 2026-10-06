@@ -1,7 +1,9 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Util\PaymentMethods\Methods;
 
+use WoocommerceOnpay\OnPay\API\Enum\PaymentMethod;
 use WoocommerceOnpay\OnPay\API\Exception\ApiException;
 use WoocommerceOnpay\OnPay\API\Util\Currencies;
 use WoocommerceOnpay\OnPay\API\Util\Currency;
@@ -11,29 +13,38 @@ use WoocommerceOnpay\OnPay\API\Util\PaymentMethods\Enums\CurrencyCodes;
  */
 abstract class PaymentMethodAbstract implements PaymentMethodInterface
 {
+    /**
+     * @var list<string>
+     */
     const CURRENCIES = [];
+    /**
+     * @deprecated Use {@see PaymentMethodAbstract::getMethod()} or the {@see PaymentMethod}
+     *             enum instead. Every concrete method class still declares this constant
+     *             with its current value.
+     * @var string
+     */
     const METHOD_NAME = '';
     /**
      * @param Currency $currency
      * @return bool
      * @internal Internal use only
      */
-    public function isAvailableForCurrency(Currency $currency)
+    public function isAvailableForCurrency(Currency $currency): bool
     {
-        if (static::CURRENCIES[0] === CurrencyCodes::ALL_CURRENCY_CODES) {
+        if (in_array(CurrencyCodes::ALL_CURRENCY_CODES, static::CURRENCIES, \true)) {
             return \true;
         }
         return in_array($currency->getAlpha3(), static::CURRENCIES, \true);
     }
     /**
-     * @return array
+     * @return Currency[]
      * @throws ApiException
      * @internal Internal use only
      */
-    public function getCurrencies()
+    public function getCurrencies(): array
     {
         $currencies = [];
-        if (static::CURRENCIES[0] === CurrencyCodes::ALL_CURRENCY_CODES) {
+        if (in_array(CurrencyCodes::ALL_CURRENCY_CODES, static::CURRENCIES, \true)) {
             foreach (Currencies::CURRENCIES as $currencyCode => $currencyData) {
                 $currencies[] = new Currency($currencyCode);
             }
@@ -48,8 +59,8 @@ abstract class PaymentMethodAbstract implements PaymentMethodInterface
      * @return string
      * @internal Internal use only
      */
-    public function getName()
+    public function getName(): string
     {
-        return static::METHOD_NAME;
+        return $this->getMethod()->value;
     }
 }

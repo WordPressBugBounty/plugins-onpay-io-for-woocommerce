@@ -1,8 +1,10 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Gateway;
 
-class Information
+use WoocommerceOnpay\OnPay\API\Util\DataReader;
+final class Information
 {
     /**
      * @internal Shall not be used outside the library
@@ -11,10 +13,7 @@ class Information
      */
     public function __construct(array $data)
     {
-        $this->gatewayId = isset($data['gateway_id']) ? $data['gateway_id'] : null;
+        $this->gatewayId = DataReader::requireString($data, 'gateway_id');
     }
-    /**
-     * @var string|null
-     */
-    public $gatewayId;
+    public string $gatewayId;
 }

@@ -1,7 +1,8 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Exception;
 
-class ApiException extends \Exception
+final class ApiException extends OnPayException
 {
 }

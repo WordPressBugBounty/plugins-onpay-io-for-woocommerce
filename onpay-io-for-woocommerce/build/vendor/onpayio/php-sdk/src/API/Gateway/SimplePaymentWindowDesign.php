@@ -1,8 +1,10 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Gateway;
 
-class SimplePaymentWindowDesign
+use WoocommerceOnpay\OnPay\API\Util\DataReader;
+final class SimplePaymentWindowDesign
 {
     /**
      * @internal Shall not be used outside the library
@@ -11,10 +13,7 @@ class SimplePaymentWindowDesign
      */
     public function __construct(array $data)
     {
-        $this->name = isset($data['name']) ? $data['name'] : null;
+        $this->name = DataReader::stringOrNull($data, 'name');
     }
-    /**
-     * @var string|null
-     */
-    public $name;
+    public ?string $name = null;
 }

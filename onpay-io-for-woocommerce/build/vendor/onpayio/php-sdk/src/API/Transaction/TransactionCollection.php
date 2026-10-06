@@ -1,16 +1,14 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Transaction;
 
 use WoocommerceOnpay\OnPay\API\Util\Pagination;
-class TransactionCollection
+final class TransactionCollection
 {
     /**
      * @var SimpleTransaction[]
      */
-    public $transactions;
-    /**
-     * @var Pagination
-     */
-    public $pagination;
+    public array $transactions = [];
+    public ?Pagination $pagination = null;
 }

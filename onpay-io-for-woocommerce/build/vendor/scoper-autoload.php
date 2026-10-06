@@ -20,4 +20,36 @@ $loader = (static function () {
     return $loader;
 })();
 
+// Class aliases. For more information see:
+// https://github.com/humbug/php-scoper/blob/master/docs/further-reading.md#class-aliases
+if (!function_exists('humbug_phpscoper_expose_class')) {
+    function humbug_phpscoper_expose_class($exposed, $prefixed) {
+        if (!class_exists($exposed, false) && !interface_exists($exposed, false) && !trait_exists($exposed, false)) {
+            spl_autoload_call($prefixed);
+        }
+    }
+}
+humbug_phpscoper_expose_class('AllowDynamicProperties', 'WoocommerceOnpay\AllowDynamicProperties');
+humbug_phpscoper_expose_class('SensitiveParameter', 'WoocommerceOnpay\SensitiveParameter');
+humbug_phpscoper_expose_class('SensitiveParameterValue', 'WoocommerceOnpay\SensitiveParameterValue');
+humbug_phpscoper_expose_class('Attribute', 'WoocommerceOnpay\Attribute');
+humbug_phpscoper_expose_class('PhpToken', 'WoocommerceOnpay\PhpToken');
+humbug_phpscoper_expose_class('Stringable', 'WoocommerceOnpay\Stringable');
+humbug_phpscoper_expose_class('UnhandledMatchError', 'WoocommerceOnpay\UnhandledMatchError');
+humbug_phpscoper_expose_class('ValueError', 'WoocommerceOnpay\ValueError');
+
+// Function aliases. For more information see:
+// https://github.com/humbug/php-scoper/blob/master/docs/further-reading.md#function-aliases
+if (!function_exists('fdiv')) { function fdiv() { return \WoocommerceOnpay\fdiv(...func_get_args()); } }
+if (!function_exists('get_debug_type')) { function get_debug_type() { return \WoocommerceOnpay\get_debug_type(...func_get_args()); } }
+if (!function_exists('get_resource_id')) { function get_resource_id() { return \WoocommerceOnpay\get_resource_id(...func_get_args()); } }
+if (!function_exists('ini_parse_quantity')) { function ini_parse_quantity() { return \WoocommerceOnpay\ini_parse_quantity(...func_get_args()); } }
+if (!function_exists('odbc_connection_string_is_quoted')) { function odbc_connection_string_is_quoted() { return \WoocommerceOnpay\odbc_connection_string_is_quoted(...func_get_args()); } }
+if (!function_exists('odbc_connection_string_quote')) { function odbc_connection_string_quote() { return \WoocommerceOnpay\odbc_connection_string_quote(...func_get_args()); } }
+if (!function_exists('odbc_connection_string_should_quote')) { function odbc_connection_string_should_quote() { return \WoocommerceOnpay\odbc_connection_string_should_quote(...func_get_args()); } }
+if (!function_exists('preg_last_error_msg')) { function preg_last_error_msg() { return \WoocommerceOnpay\preg_last_error_msg(...func_get_args()); } }
+if (!function_exists('str_contains')) { function str_contains() { return \WoocommerceOnpay\str_contains(...func_get_args()); } }
+if (!function_exists('str_ends_with')) { function str_ends_with() { return \WoocommerceOnpay\str_ends_with(...func_get_args()); } }
+if (!function_exists('str_starts_with')) { function str_starts_with() { return \WoocommerceOnpay\str_starts_with(...func_get_args()); } }
+
 return $loader;

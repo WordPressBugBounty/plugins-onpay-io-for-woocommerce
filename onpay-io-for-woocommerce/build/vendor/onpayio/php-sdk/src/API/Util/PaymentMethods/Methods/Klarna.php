@@ -1,14 +1,20 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\Util\PaymentMethods\Methods;
 
+use WoocommerceOnpay\OnPay\API\Enum\PaymentMethod;
 use WoocommerceOnpay\OnPay\API\Util\PaymentMethods\Enums\CurrencyCodes;
-use WoocommerceOnpay\OnPay\API\Util\PaymentMethods\Enums\Methods;
 /**
  * @internal Internal use only
  */
 final class Klarna extends PaymentMethodAbstract
 {
     const CURRENCIES = [CurrencyCodes::AUD, CurrencyCodes::CAD, CurrencyCodes::CZK, CurrencyCodes::DKK, CurrencyCodes::NOK, CurrencyCodes::SEK, CurrencyCodes::CHF, CurrencyCodes::GBP, CurrencyCodes::USD, CurrencyCodes::EUR, CurrencyCodes::PLN];
-    const METHOD_NAME = Methods::KLARNA;
+    /** @deprecated Use {@see Klarna::getMethod()} or {@see PaymentMethod::KLARNA} instead. */
+    const METHOD_NAME = PaymentMethod::KLARNA->value;
+    public function getMethod(): PaymentMethod
+    {
+        return PaymentMethod::KLARNA;
+    }
 }

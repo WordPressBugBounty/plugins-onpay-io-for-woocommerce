@@ -12,6 +12,7 @@
     class_alias('WoocommerceOnpay\OnPay\OnPayAPI', 'OnPay\OnPayAPI');
 
     class_alias('WoocommerceOnpay\OnPay\TokenStorageInterface', 'OnPay\TokenStorageInterface');
+    class_alias('WoocommerceOnpay\OnPay\AuthStateStorageInterface', 'OnPay\AuthStateStorageInterface');
 
     class_alias('WoocommerceOnpay\OnPay\API\GatewayService', 'OnPay\API\GatewayService');
     class_alias('WoocommerceOnpay\OnPay\API\PaymentWindow', 'OnPay\API\PaymentWindow');
@@ -45,6 +46,8 @@
     class_alias('WoocommerceOnpay\OnPay\API\Util\Converter', 'OnPay\API\Util\Converter');
     class_alias('WoocommerceOnpay\OnPay\API\Util\Link', 'OnPay\API\Util\Link');
     class_alias('WoocommerceOnpay\OnPay\API\Util\Pagination', 'OnPay\API\Util\Pagination');
+    
+    class_alias('WoocommerceOnpay\OnPay\API\Enum\PaymentMethod', 'OnPay\API\Enum\PaymentMethod');
 
     /**
      * Other Classes

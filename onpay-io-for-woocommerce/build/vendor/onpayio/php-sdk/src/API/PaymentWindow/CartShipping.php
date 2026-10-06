@@ -1,18 +1,15 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\PaymentWindow;
 
 /**
  * @internal Use the methods on the Cart class instead
  */
-class CartShipping
+final class CartShipping
 {
-    /** @var int */
-    public $price;
-    /** @var int|null */
-    public $discount = null;
-    /** @var int */
-    public $tax;
-    /** @var string|null */
-    public $name = null;
+    public int $price = 0;
+    public ?int $discount = null;
+    public int $tax = 0;
+    public ?string $name = null;
 }

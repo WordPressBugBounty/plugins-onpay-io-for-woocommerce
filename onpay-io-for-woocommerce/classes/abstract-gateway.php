@@ -133,12 +133,10 @@ abstract class wc_onpay_gateway_abstract extends WC_Payment_Gateway {
 
         // Check for subscription presence
         $isSubscription = false;
+        $isSubscriptionRenewal = false;
         if ($this->supports('subscriptions')) { // No need to perform subscription related checks, if methods does not support it.
             $isSubscription = $orderHelper->isOrderSubscription($order);
-            // Enforce method update if order is subscription renewal
-            if (!$updateMethod) { // If not already instructed to update method, find out if we need to
-                $updateMethod = $orderHelper->isOrderSubscriptionEarlyRenewal($order) || $orderHelper->isOrderSubscriptionRenewal($order);
-            }
+            $isSubscriptionRenewal = $orderHelper->isOrderSubscriptionEarlyRenewal($order) || $orderHelper->isOrderSubscriptionRenewal($order);
         }
 
         // We'll need to find out details about the currency, and format the order total amount accordingly
@@ -151,8 +149,8 @@ abstract class wc_onpay_gateway_abstract extends WC_Payment_Gateway {
             $paymentWindow->setType("subscription");
             // If we're not updating method
             if (!$updateMethod) {
-                // Instruct to create initial transaction with amount supplied.
-                // The Callback from OnPay will contain information about created transaction.
+                // Create an initial transaction alongside the subscription so the payment window
+                // displays the amount. The callback from OnPay will include the created transaction.
                 $paymentWindow->setSubscriptionWithTransaction(true);
             }
             
@@ -212,40 +210,41 @@ abstract class wc_onpay_gateway_abstract extends WC_Payment_Gateway {
         // Add parameters to callback URL
         $callbackUrl = WC()->api_request_url('wc_onpay' . '_callback');
         $callbackUrl = add_query_arg('order_key', $order->get_order_key(), $callbackUrl);
-        if ($updateMethod) {
+        // Instruct callback to update payment method on subscription, when changing method or paying a renewal order
+        if ($updateMethod || $isSubscriptionRenewal) {
             $callbackUrl = add_query_arg('update_method', true, $callbackUrl);
         }
 
-        $paymentWindow->setGatewayId($this->get_option(WC_OnPay::SETTING_ONPAY_GATEWAY_ID));
-        $paymentWindow->setSecret($this->get_option(WC_OnPay::SETTING_ONPAY_SECRET));
+        $paymentWindow->setGatewayId((string) $this->get_option(WC_OnPay::SETTING_ONPAY_GATEWAY_ID));
+        $paymentWindow->setSecret((string) $this->get_option(WC_OnPay::SETTING_ONPAY_SECRET));
         $paymentWindow->setCurrency($isoCurrency->alpha3);
         $paymentWindow->setReference($reference);
         $paymentWindow->setAcceptUrl($order->get_checkout_order_received_url());
         $paymentWindow->setDeclineUrl($declineUrl);
         $paymentWindow->setCallbackUrl($callbackUrl);
         $paymentWindow->setWebsite(get_site_url());
-        $paymentWindow->setPlatform('woocommerce', WC_OnPay::PLUGIN_VERSION, WC_VERSION);
+        $paymentWindow->setPlatform('woocommerce', WC_OnPay::PLUGIN_VERSION, WC_VERSION . '/' . PHP_VERSION);
 
         if($order->get_payment_method() === 'onpay_card') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_CARD);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::CARD);
         } else if($order->get_payment_method() === 'onpay_mobilepay') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_MOBILEPAY);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::MOBILEPAY);
         } else if($order->get_payment_method() === 'onpay_applepay') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_APPLEPAY);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::APPLE_PAY);
         } else if($order->get_payment_method() === 'onpay_googlepay') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_GOOGLEPAY);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::GOOGLE_PAY);
         } else if($order->get_payment_method() === 'onpay_viabill') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_VIABILL);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::VIABILL);
         } else if($order->get_payment_method() === 'onpay_anyday') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_ANYDAY);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::ANYDAY);
         } else if($order->get_payment_method() === 'onpay_vipps') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_VIPPS);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::VIPPS);
         } else if($order->get_payment_method() === 'onpay_swish') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_SWISH);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::SWISH);
         } else if($order->get_payment_method() === 'onpay_paypal') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_PAYPAL);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::PAYPAL);
         } else if($order->get_payment_method() === 'onpay_klarna') {
-            $paymentWindow->setMethod($paymentWindow::METHOD_KLARNA);
+            $paymentWindow->setMethod(\OnPay\API\Enum\PaymentMethod::KLARNA);
         }
 
         if($this->get_option(WC_OnPay::SETTING_ONPAY_PAYMENTWINDOW_DESIGN) && $this->get_option(WC_OnPay::SETTING_ONPAY_PAYMENTWINDOW_DESIGN) !== 'ONPAY_DEFAULT_WINDOW') {
@@ -255,6 +254,13 @@ abstract class wc_onpay_gateway_abstract extends WC_Payment_Gateway {
         $language = $this->getLanguage();
         if(null !== $language) {
             $paymentWindow->setLanguage($language);
+        }
+
+        // Setting is stored in minutes for consistency with WooCommerce's "Hold stock (minutes)" option,
+        // but the OnPay SDK expects the value in seconds.
+        $expiration = $this->get_option(WC_OnPay::SETTING_ONPAY_PAYMENTWINDOW_EXPIRATION);
+        if (is_numeric($expiration) && intval($expiration) > 0) {
+            $paymentWindow->setExpiration(intval($expiration) * 60);
         }
 
         // Load the customer, if there is one. On guest checkouts customer_id is 0 and the WC_Customer
@@ -321,11 +327,7 @@ abstract class wc_onpay_gateway_abstract extends WC_Payment_Gateway {
         }        
         
         // Enable testmode
-        if($this->get_option(WC_OnPay::SETTING_ONPAY_TESTMODE) === 'yes') {
-            $paymentWindow->setTestMode(1);
-        } else {
-            $paymentWindow->setTestMode(0);
-        }
+        $paymentWindow->setTestModeEnabled($this->get_option(WC_OnPay::SETTING_ONPAY_TESTMODE) === 'yes');
         return $paymentWindow;
     }
 

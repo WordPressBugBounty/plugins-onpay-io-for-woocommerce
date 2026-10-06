@@ -30,7 +30,8 @@
 * Author URI: https://onpay.io/
 * Text Domain: wc-onpay
 * Domain Path: /languages
-* Version: 1.0.53
+* Version: 1.0.54
+* Requires PHP: 8.2
 **/
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -53,6 +54,7 @@ function init_onpay() {
     include_once __DIR__ . '/classes/query-helper.php';
     include_once __DIR__ . '/classes/surcharge-helper.php';
     include_once __DIR__ . '/classes/token-storage.php';
+    include_once __DIR__ . '/classes/auth-state-storage.php';
     include_once __DIR__ . '/classes/logger-helper.php';
 
     include_once __DIR__ . '/classes/gateway-card.php';
@@ -67,7 +69,7 @@ function init_onpay() {
     include_once __DIR__ . '/classes/gateway-klarna.php';
 
     class WC_OnPay extends WC_Payment_Gateway {
-        const PLUGIN_VERSION = '1.0.53';
+        const PLUGIN_VERSION = '1.0.54';
 
         const SETTING_ONPAY_GATEWAY_ID = 'gateway_id';
         const SETTING_ONPAY_SECRET = 'secret';
@@ -86,6 +88,7 @@ function init_onpay() {
         const SETTING_ONPAY_PAYMENTWINDOW_DESIGN = 'paymentwindow_design';
         const SETTING_ONPAY_PAYMENTWINDOW_LANGUAGE = 'paymentwindow_language';
         const SETTING_ONPAY_PAYMENTWINDOW_LANGUAGE_AUTO = 'paymentwindow_language_auto';
+        const SETTING_ONPAY_PAYMENTWINDOW_EXPIRATION = 'paymentwindow_expiration';
         const SETTING_ONPAY_TESTMODE = 'testmode_enabled';
         const SETTING_ONPAY_CARDLOGOS = 'card_logos';
         const SETTING_ONPAY_STATUS_AUTOCAPTURE = 'status_autocapture';
@@ -318,8 +321,9 @@ function init_onpay() {
             $currencyHelper = new wc_onpay_currency_helper();
             $orderCurrency = $currencyHelper->fromAlpha3($order->get_currency());
 
-            // Is order in pending state
-            if ($order->has_status('pending')) {
+            // Only process the callback if the order is still awaiting payment: new orders are
+            // 'pending', renewal orders being retried via pay-for-order are 'failed'.
+            if ($order->has_status(['pending', 'failed'])) {
                 // If we're dealing with a subscription
                 if ($onpayType === 'subscription') {
                     // Write subscription id to subscription order and save it. This is the created subscription
@@ -330,8 +334,8 @@ function init_onpay() {
                         $subscription->save();
                     }
 
-                    // If we're dealing with an renewal, we need to create a new transaction from the subscription
-                    if ($orderHelper->isOrderSubscriptionRenewal($order) || $orderHelper->isOrderSubscriptionEarlyRenewal($order)) {
+                    // If we're dealing with a renewal and no transaction was created yet, we need to create a new transaction from the subscription
+                    if (null === $onpayTransactionNumber && ($orderHelper->isOrderSubscriptionRenewal($order) || $orderHelper->isOrderSubscriptionEarlyRenewal($order))) {
                         // Fetch surcharge settings
                         $surchargeEnabled = $this->get_option(WC_OnPay::SETTING_ONPAY_SURCHARGE_ENABLE) === 'yes';
                         $surchargeVatRate = 0;
@@ -345,15 +349,21 @@ function init_onpay() {
                         }
 
                         $orderAmount = $currencyHelper->majorToMinor($order->get_total(), $orderCurrency->numeric, '.');
-                        
-                        $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($onpayNumber);
-                        $createdTransaction = $this->get_onpay_client()->subscription()->createTransactionFromSubscription(
-                            $onpaySubscription->uuid, 
-                            $orderAmount, 
-                            strval($order->get_order_number()),
-                            $surchargeEnabled,
-                            $surchargeVatRate
-                        );
+
+                        try {
+                            $onpaySubscription = $this->get_onpay_client()->subscription()->getSubscription($onpayNumber);
+                            $createdTransaction = $this->get_onpay_client()->subscription()->createTransactionFromSubscription(
+                                $onpaySubscription->uuid,
+                                $orderAmount,
+                                strval($order->get_order_number()),
+                                $surchargeEnabled,
+                                $surchargeVatRate
+                            );
+                        } catch (OnPay\API\Exception\ApiException $exception) {
+                            // Fail order and stop before order is wrongly completed without a transaction
+                            $order->update_status('failed', __('Creating transaction from subscription in OnPay failed: ', 'wc-onpay') . $exception->getMessage());
+                            $this->json_response('Transaction creation failed', true, 500);
+                        }
 
                         // Set transaction number to the one returned from OnPay authorization
                         $onpayTransactionNumber = $createdTransaction->transactionNumber;
@@ -914,6 +924,16 @@ function init_onpay() {
                     'default' => 'no',
                     'label' => __('Overrides language chosen above, and instead use frontoffice language', 'wc-onpay'),
                 ],
+                self::SETTING_ONPAY_PAYMENTWINDOW_EXPIRATION => [
+                    'title' => __('Payment window expiration (minutes)', 'wc-onpay'),
+                    'type' => 'number',
+                    'default' => '',
+                    'custom_attributes' => [
+                        'min' => '0',
+                        'step' => '1',
+                    ],
+                    'description' => __('Number of minutes the payment window will be available before expiring. Leave empty to use the OnPay default (7 days).', 'wc-onpay'),
+                ],
                 self::SETTING_ONPAY_TESTMODE => [
                     'title' => __('Test Mode', 'wc-onpay'),
                     'label' => ' ',
@@ -1044,6 +1064,10 @@ function init_onpay() {
         public function orderStatusCompleteEvent($orderId) {
             $order = new WC_Order($orderId);
             $transactionId = $this->getOnpayId($order);
+            // Skip zero-amount orders
+            if ($order->get_total() <= 0) {
+                return;
+            }
             // Check if order payment method is OnPay
             if ($this->isOnPayMethod($order->get_payment_method()) && null !== $transactionId) {
                 // If autocapture is not enabled, no need to do anything
@@ -1067,6 +1091,8 @@ function init_onpay() {
                             'location' => 'orderStatusCompleteEvent'
                         ]);
                         $order->add_order_note(__( 'Automatic capture failed.') . ' ' . __('Invalid OnPay token, please login on settings page', 'wc-onpay' ));
+                    } catch (OnPay\API\Exception\ApiException $exception) { // Generic API failure (e.g. transaction not found)
+                        $order->add_order_note(__('Automatic capture failed.', 'wc-onpay') . ' ' . $exception->getMessage());
                     }
                 }
             } 
@@ -1651,6 +1677,7 @@ function init_onpay() {
          */
         private function get_onpay_client($prepareRedirectUri = false) {
             $tokenStorage = new wc_onpay_token_storage();
+            $authStateStorage = new wc_onpay_auth_state_storage();
             $params = [];
             // AdminToken cannot be generated on payment pages
             if($prepareRedirectUri) {
@@ -1658,11 +1685,15 @@ function init_onpay() {
                 $params['tab'] = self::WC_ONPAY_ID;
             }
             $url = wc_onpay_query_helper::generate_url($params);
-            $onPayAPI = new \OnPay\OnPayAPI($tokenStorage, [
-                'client_id' => 'Onpay WooCommerce',
-                'redirect_uri' => $url,
-                'platform' => self::WC_ONPAY_PLATFORM_STRING,
-            ]);
+            $onPayAPI = new \OnPay\OnPayAPI(
+                $tokenStorage,
+                [
+                    'client_id' => 'Onpay WooCommerce',
+                    'redirect_uri' => $url,
+                    'platform' => self::WC_ONPAY_PLATFORM_STRING,
+                ],
+                $authStateStorage
+            );
             return $onPayAPI;
         }
 
@@ -1671,10 +1702,12 @@ function init_onpay() {
          */
         private function handle_oauth_callback() {
             $onpayApi = $this->get_onpay_client(true);
-            if(null !== wc_onpay_query_helper::get_query_value('code') && !$onpayApi->isAuthorized()) {
-                // We're not authorized with the API, and we have a 'code' value at hand. 
+            $code = wc_onpay_query_helper::get_query_value('code');
+            if (is_string($code) && $code !== '' && !$onpayApi->isAuthorized()) {
+                // We're not authorized with the API, and we have a 'code' value at hand.
                 // Let's authorize, and save the gatewayID and secret accordingly.
-                $onpayApi->finishAuthorize(wc_onpay_query_helper::get_query_value('code'));
+                $state = wc_onpay_query_helper::get_query_value('state');
+                $onpayApi->finishAuthorize($code, is_string($state) && $state !== '' ? $state : null);
                 if ($onpayApi->isAuthorized()) {
                     $this->update_option(self::SETTING_ONPAY_GATEWAY_ID, $onpayApi->gateway()->getInformation()->gatewayId);
                     $this->update_option(self::SETTING_ONPAY_SECRET, $onpayApi->gateway()->getPaymentWindowIntegrationSettings()->secret);

@@ -1,7 +1,9 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay;
 
+use WoocommerceOnpay\OnPay\API\Exception\TokenException;
 /**
  * This object is meant for use with static API tokens from OnPay.
  * In order to construct this object, a static API token created in in OnPay management panel is needed.
@@ -15,9 +17,9 @@ namespace WoocommerceOnpay\OnPay;
  * Class StaticToken
  * @package OnPay
  */
-class StaticToken implements TokenStorageInterface
+final class StaticToken implements TokenStorageInterface
 {
-    protected $staticToken;
+    private string $staticToken;
     /**
      * StaticToken constructor.
      * @param string $staticToken
@@ -27,20 +29,25 @@ class StaticToken implements TokenStorageInterface
         $this->staticToken = $staticToken;
     }
     /**
-     * @param string|null $client_id
-     * @param string|null $authorize_uri
-     * @return false|string|null
+     * Static API tokens neither expire nor refresh, so no expiry is set.
+     *
+     * @return string|null
      */
-    public function getToken(string $client_id = null, string $authorize_uri = null)
+    public function getToken(): ?string
     {
-        return json_encode(['provider_id' => $authorize_uri . '|' . $client_id, 'issued_at' => date('Y-m-d H:i:s'), 'access_token' => $this->staticToken, 'token_type' => 'Bearer', 'expires_in' => 3600, 'scope' => 'full']);
+        try {
+            return json_encode(['access_token' => $this->staticToken, 'token_type' => 'Bearer', 'scope' => 'full'], \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES);
+        } catch (\JsonException $e) {
+            throw new TokenException('Failed to encode static token: ' . $e->getMessage(), $e->getCode(), $e);
+        }
     }
     /**
      * Dummy method, we do not need to save anything in this tokenstorage
      *
-     * @param $token
+     * @param string $token
+     * @return void
      */
-    public function saveToken($token)
+    public function saveToken(string $token): void
     {
     }
 }

@@ -6,7 +6,17 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'WoocommerceOnpay\\Symfony\\Polyfill\\Php82\\' => array($vendorDir . '/symfony/polyfill-php82'),
+    'WoocommerceOnpay\\Symfony\\Polyfill\\Php80\\' => array($vendorDir . '/symfony/polyfill-php80'),
+    'WoocommerceOnpay\\Psr\\Log\\' => array($vendorDir . '/psr/log/src'),
+    'WoocommerceOnpay\\Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-factory/src', $vendorDir . '/psr/http-message/src'),
+    'WoocommerceOnpay\\Psr\\Http\\Client\\' => array($vendorDir . '/psr/http-client/src'),
     'WoocommerceOnpay\\OnPay\\' => array($vendorDir . '/onpayio/php-sdk/src'),
+    'WoocommerceOnpay\\League\\OAuth2\\Client\\' => array($vendorDir . '/league/oauth2-client/src'),
     'WoocommerceOnpay\\League\\ISO3166\\' => array($vendorDir . '/league/iso3166/src'),
+    'WoocommerceOnpay\\Http\\Discovery\\' => array($vendorDir . '/php-http/discovery/src'),
+    'WoocommerceOnpay\\GuzzleHttp\\Psr7\\' => array($vendorDir . '/guzzlehttp/psr7/src'),
+    'WoocommerceOnpay\\GuzzleHttp\\Promise\\' => array($vendorDir . '/guzzlehttp/promises/src'),
+    'WoocommerceOnpay\\GuzzleHttp\\' => array($vendorDir . '/guzzlehttp/guzzle/src'),
     'WoocommerceOnpay\\Alcohol\\' => array($vendorDir . '/alcohol/iso4217'),
 );

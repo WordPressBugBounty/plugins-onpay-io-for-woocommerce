@@ -1,36 +1,28 @@
 <?php
 
+declare (strict_types=1);
 namespace WoocommerceOnpay\OnPay\API\PaymentWindow;
 
 use WoocommerceOnpay\OnPay\API\Exception\InvalidCartException;
-class Cart
+final class Cart
 {
-    /**
-     * @var CartShipping|null
-     */
-    private $shipping = null;
-    /**
-     * @var CartHandling|null
-     */
-    private $handling = null;
-    /**
-     * @var int|null
-     */
-    private $discount = null;
+    private ?CartShipping $shipping = null;
+    private ?CartHandling $handling = null;
+    private ?int $discount = null;
     /**
      * @var CartItem[]
      */
-    private $items = [];
+    private array $items = [];
     /**
      * Set the shipping costs
      *
      * @param int $price Amount in minor units, including tax and discount
      * @param int $tax Amount in minor monetary units
      * @param int|null $discount Amount in minor monetary units
-     * @param int|null $name Name that applies to the shipping
+     * @param string|null $name Name that applies to the shipping
      * @return void
      */
-    public function setShipping($price, $tax, $discount = null, $name = null)
+    public function setShipping($price, $tax, $discount = null, ?string $name = null): void
     {
         $this->shipping = new CartShipping();
         $this->shipping->price = intval($price);
@@ -47,10 +39,10 @@ class Cart
      *
      * @param int $price Amount in minor units, including tax
      * @param int $tax Amount in minor monetary units
-     * @param int $name Name that applies to the handling
+     * @param string|null $name Name that applies to the handling
      * @return void
      */
-    public function setHandling($price, $tax, $name = null)
+    public function setHandling($price, $tax, ?string $name = null): void
     {
         $this->handling = new CartHandling();
         $this->handling->price = intval($price);
@@ -63,15 +55,18 @@ class Cart
      * @param int $amount Amount in minor units
      * @return void
      */
-    public function setDiscount($amount)
+    public function setDiscount($amount): void
     {
         $this->discount = intval($amount);
     }
-    public function addItem(CartItem $cartItem)
+    public function addItem(CartItem $cartItem): void
     {
         $this->items[] = $cartItem;
     }
-    public function setItems(array $items)
+    /**
+     * @param CartItem[] $items
+     */
+    public function setItems(array $items): void
     {
         $this->items = [];
         foreach ($items as $item) {
@@ -81,28 +76,28 @@ class Cart
     /**
      * @return CartShipping|null
      */
-    public function getShipping()
+    public function getShipping(): ?CartShipping
     {
         return $this->shipping;
     }
     /**
      * @return CartHandling|null
      */
-    public function getHandling()
+    public function getHandling(): ?CartHandling
     {
         return $this->handling;
     }
     /**
      * @return int|null
      */
-    public function getDiscount()
+    public function getDiscount(): ?int
     {
         return $this->discount;
     }
     /**
      * @return CartItem[]
      */
-    public function getItems()
+    public function getItems(): array
     {
         if (count($this->items) > 20) {
             // We will collapse the last one in this case
@@ -127,7 +122,7 @@ class Cart
      * @internal
      * @return array
      */
-    public function getFields()
+    public function getFields(): array
     {
         $output = [];
         if (null !== $this->shipping) {
@@ -161,12 +156,12 @@ class Cart
         return $output;
     }
     /**
-     * @param int $amount
+     * @param int|string|null $amount
      * @return void
      * @throws InvalidCartException
      * @internal
      */
-    public function throwOnInvalid($amount)
+    public function throwOnInvalid($amount): void
     {
         $errors = [];
         $amount = intval($amount);
